@@ -13,7 +13,6 @@ LIBBPF_VERSION=0.4.0
 header_files=(
     "bpf_helper_defs.h"
     "bpf_helpers.h"
-    "bpf_tracing.h"
 )
 
 for f in "${header_files[@]}"; do
