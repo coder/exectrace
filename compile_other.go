@@ -5,9 +5,6 @@ package exectrace
 
 import (
 	"context"
-	"runtime"
-
-	"golang.org/x/xerrors"
 )
 
 // CompileProgram always returns an error on operating systems other than Linux.

@@ -13,6 +13,10 @@ var (
 	errUnsupportedOS = xerrors.Errorf(`%q is an unsupported OS, only "linux" is supported`, runtime.GOOS)
 )
 
-// Suppress unused variable errors. These variables are used in files that
-// aren't included in the Linux build.
-var _ = errUnsupportedOS
+// Suppress unused variable errors. These variables are used in files that are
+// not included in all builds.
+var (
+	_ = errhandlerClosed
+	_ = errObjectsClosed
+	_ = errUnsupportedOS
+)

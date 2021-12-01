@@ -2,12 +2,6 @@ package exectrace
 
 import "io"
 
-// These cosntants are defined in `bpf/handler.c` and must be kept in sync.
-const (
-	ARGLEN  = 32
-	ARGSIZE = 1024
-)
-
 // Handler allows consumers to read exec events from the kernel via an eBPF
 // program. `execve()` syscalls are traced in the kernel, and details about the
 // event are sent back to this Go interface.
@@ -16,21 +10,6 @@ type Handler interface {
 
 	Start() error
 	Read() (*Event, error)
-}
-
-// event contains details about each exec call, sent from the eBPF program to
-// userspace through a perf ring buffer. This type must be kept in sync with
-// `event_t` in `bpf/handler.c`.
-type event struct {
-	Filename  [ARGSIZE]byte
-	Argv      [ARGLEN][ARGSIZE]byte
-	Truncated uint32
-
-	UID    uint32
-	GID    uint32
-	PID    uint32
-	Comm   [ARGSIZE]byte
-	Cgroup int32
 }
 
 // Event builds on top of event and contains more user-friendly fields for

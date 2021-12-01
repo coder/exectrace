@@ -14,6 +14,6 @@ type BPFObjects interface {
 
 // LoadBPFObjects reads and parses the programs and maps out of the given BPF
 // executable file.
-func LoadBPFObjects(r io.ReaderAt) (BPFObjects, error) {
+func LoadBPFObjects(_ io.ReaderAt) (BPFObjects, error) {
 	return nil, errUnsupportedOS
 }

@@ -5,8 +5,8 @@
     </span>
 </h1>
 
-Simple [eBPF](https://ebpf.io/)-based exec snooping, packaged as a simple Go
-library.
+Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a
+simple Go library.
 
 ## Installation
 

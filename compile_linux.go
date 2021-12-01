@@ -76,7 +76,7 @@ func CompileProgram(ctx context.Context, opts CompileOptions) ([]byte, error) {
 		"-fdebug-compilation-dir", ".",
 
 		"-target", target,
-		"-c", "./" + ProgramFile,
+		"-c", "./" + programFile,
 		"-o", "./" + outputFile,
 	}
 
