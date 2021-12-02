@@ -3,7 +3,7 @@
 
 // This license needs to be GPL-compatible because the BTF verifier won't let us
 // use many BPF helpers (including `bpf_probe_read_*`).
-char __license[] SEC("license") = "Dual MIT/GPL";
+u8 __license[] SEC("license") = "Dual MIT/GPL";
 
 // These constants must be kept in sync with Go.
 #define ARGLEN  32   // maximum amount of args in argv we'll copy
@@ -12,29 +12,29 @@ char __license[] SEC("license") = "Dual MIT/GPL";
 // This struct is defined according to
 // /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format
 struct exec_info {
-	u16 common_type;         // offset=0,  size=2
-	u8 common_flags;         // offset=2,  size=1
-	u8 common_preempt_count; // offset=3,  size=1
-	s32 common_pid;                     // offset=4,  size=4
+	u16 common_type;              // offset=0,  size=2
+	u8  common_flags;             // offset=2,  size=1
+	u8  common_preempt_count;     // offset=3,  size=1
+	s32 common_pid;               // offset=4,  size=4
 
-	s32 __syscall_nr;                   // offset=8,  size=4
-	u32: 32;                   // offset=12, size=4 (pad)
-	const u8 *filename;               // offset=16, size=8 (ptr)
-	const u8 *const *argv;            // offset=24, size=8 (ptr)
-	const u8 *const *envp;            // offset=32, size=8 (ptr)
+	s32             __syscall_nr; // offset=8,  size=4
+	u32             __pad;        // offset=12, size=4 (pad)
+	const u8        *filename;    // offset=16, size=8 (ptr)
+	const u8 *const *argv;        // offset=24, size=8 (ptr)
+	const u8 *const *envp;        // offset=32, size=8 (ptr)
 };
 
 // The event struct. This struct must be kept in sync with the Golang
 // counterpart.
 struct event_t {
-	u8 filename[ARGSIZE];
-	u8 argv[ARGLEN][ARGSIZE];
+	u8  filename[ARGSIZE];
+	u8  argv[ARGLEN][ARGSIZE];
 	u32 truncated; // set to 1 if there were more than ARGLEN arguments
 
 	u32 uid;
 	u32 gid;
 	u32 pid;
-	u8 comm[ARGSIZE];
+	u8  comm[ARGSIZE];
 	u64 cgroup;
 };
 
@@ -59,13 +59,13 @@ int enter_execve(struct exec_info *ctx) {
 	}
 
 	// Store calling process details.
-	unsigned long uidgid = bpf_get_current_uid_gid();
-	unsigned long pidtgid = bpf_get_current_pid_tgid();
+	u64 uidgid = bpf_get_current_uid_gid();
+	u64 pidtgid = bpf_get_current_pid_tgid();
 	event->uid = uidgid >> 32;  // uid is the first 32 bits
 	event->gid = uidgid << 32;  // gid is the last 32 bits
 	event->pid = pidtgid >> 32; // pid is the first 32 bits
 	event->cgroup = bpf_get_current_cgroup_id();
-	long ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
+	s64 ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret != 0) {
 		bpf_printk("could not get current comm: %d", ret);
 		bpf_ringbuf_discard(event, 0);
@@ -83,10 +83,10 @@ int enter_execve(struct exec_info *ctx) {
 
 	// TODO (dean): investigate memory corruption (returning too many args and
 	//              reading memory we shouldn't be returning)
-	for (int i = 0; i < ARGLEN; i++) {
+	for (s32 i = 0; i < ARGLEN; i++) {
 		// Copying the arg into it's own variable before copying it into
 		// event->argv[i] prevents memory corruption.
-		const char *argp = NULL;
+		const u8 *argp = NULL;
 		ret = bpf_probe_read_user(&argp, sizeof(argp), &ctx->argv[i]);
 		if (ret != 0 || !argp) {
 			goto out;
