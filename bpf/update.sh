@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 set -euo pipefail
 
 # Version of libbpf to fetch headers from.
-LIBBPF_VERSION=0.4.0
+LIBBPF_VERSION="${LIBBPF_VERSION:-0.4.0}"
 
 # The headers we want to download from the repo. These files are found in the
 # src/ directory in the repo.
