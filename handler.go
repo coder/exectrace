@@ -44,7 +44,7 @@ type Cgroup struct {
 	// You can find cgroup paths or the unified cgroup2 path by running:
 	//     $ find /path/to/cgroupfs -inum 1234
 	// Or use the handy fields below.
-	ID int32 `json:"id"`
+	ID uint64 `json:"id"`
 	// PathsV1 contains all cgroup (v1) paths that match the cgroup ID. This is
 	// a slice because there can be multiple. The prefix of the cgroup
 	// mountpoint is removed in advance, but the forward slash prefix is

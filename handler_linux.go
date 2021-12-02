@@ -40,7 +40,7 @@ type event struct {
 	GID    uint32
 	PID    uint32
 	Comm   [ARGSIZE]byte
-	Cgroup int32
+	Cgroup uint64
 }
 
 type handler struct {
