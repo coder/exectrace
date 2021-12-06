@@ -18,6 +18,14 @@ import (
 
 var remvoveMemlockOnce sync.Once
 
+var collectionOpts = &ebpf.CollectionOptions{
+	Programs: ebpf.ProgramOptions{
+		// While debugging, it may be helpful to set this value to be much
+		// higher (i.e. * 1000).
+		LogSize: ebpf.DefaultVerifierLogSize,
+	},
+}
+
 // BPFObjects contains a loaded BPF program.
 type BPFObjects interface {
 	io.Closer
@@ -48,7 +56,7 @@ func LoadBPFObjects(r io.ReaderAt) (BPFObjects, error) {
 		closeLock: sync.Mutex{},
 		closed:    make(chan struct{}),
 	}
-	err = spec.LoadAndAssign(objs, nil)
+	err = spec.LoadAndAssign(objs, collectionOpts)
 	if err != nil {
 		return nil, xerrors.Errorf("load and assign specs: %w", err)
 	}

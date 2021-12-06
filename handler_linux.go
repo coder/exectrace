@@ -32,15 +32,17 @@ const (
 // userspace through a perf ring buffer. This type must be kept in sync with
 // `event_t` in `bpf/handler.c`.
 type event struct {
-	Filename  [ARGSIZE]byte
-	Argv      [ARGLEN][ARGSIZE]byte
-	Truncated uint32
+	// Details about the process being launched.
+	Filename [ARGSIZE]byte
+	Argv     [ARGLEN][ARGSIZE]byte
+	Argc     uint32
+	UID      uint32
+	GID      uint32
+	PID      uint32
+	Cgroup   uint64
 
-	UID    uint32
-	GID    uint32
-	PID    uint32
-	Comm   [ARGSIZE]byte
-	Cgroup uint64
+	// Name of the calling process.
+	Comm [ARGSIZE]byte
 }
 
 type handler struct {
@@ -170,21 +172,21 @@ func (h *handler) Read() (*Event, error) {
 	ev := &Event{
 		Filename:  unix.ByteSliceToString(rawEvent.Filename[:]),
 		Argv:      []string{}, // populated below
-		Truncated: rawEvent.Truncated != 0,
-		Caller: Process{
-			PID:  rawEvent.PID,
-			Comm: unix.ByteSliceToString(rawEvent.Comm[:]),
-			UID:  rawEvent.UID,
-			GID:  rawEvent.GID,
-			Cgroup: Cgroup{
-				ID: rawEvent.Cgroup,
-				// TODO: find cgroup paths (needs a lookup cache)
-				PathsV1: []string{},
-				PathV2:  "",
-			},
-		},
+		Truncated: rawEvent.Argc == ARGLEN+1,
+		PID:       rawEvent.PID,
+		UID:       rawEvent.UID,
+		GID:       rawEvent.GID,
+		CgroupID:  rawEvent.Cgroup,
+		Comm:      unix.ByteSliceToString(rawEvent.Comm[:]),
 	}
-	for i := range &rawEvent.Argv {
+
+	// Copy only the args we're allowed to read from the array. If we read more
+	// than rawEvent.Argc, we could be copying non-zeroed memory.
+	argc := int(rawEvent.Argc)
+	if argc > ARGLEN {
+		argc = ARGLEN
+	}
+	for i := 0; i < argc; i++ {
 		str := unix.ByteSliceToString(rawEvent.Argv[i][:])
 		if strings.TrimSpace(str) != "" {
 			ev.Argv = append(ev.Argv, str)

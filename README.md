@@ -9,7 +9,8 @@ to receive details about the `exec` family of syscalls.
 
 ## Installation
 
-exectrace only support Go 1.16 and newer.
+exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to use of
+`BPF_MAP_TYPE_RINGBUF`).
 
 ```
 $ go get -u cdr.dev/exectrace

@@ -27,30 +27,34 @@ struct exec_info {
 // The event struct. This struct must be kept in sync with the Golang
 // counterpart.
 struct event_t {
+	// Details about the process being launched.
 	u8  filename[ARGSIZE];
 	u8  argv[ARGLEN][ARGSIZE];
-	u32 truncated; // set to 1 if there were more than ARGLEN arguments
-
+	u32 argc; // set to ARGLEN + 1 if there were more than ARGLEN arguments
 	u32 uid;
 	u32 gid;
 	u32 pid;
-	u8  comm[ARGSIZE];
 	u64 cgroup;
+
+	// Name of the calling process.
+	u8  comm[ARGSIZE];
 };
 
-// This is the perf ring buffer we'll output events data to. The Go program
-// reads from this perf ring buffer and reads the data into a Go struct for
-// easy usage.
+// This is the ring buffer we'll output events data to. The Go program reads
+// from this ring buffer and reads the data into a Go struct for easy usage.
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
 	__uint(max_entries, 1 << 24);
 } events SEC(".maps");
 
+// Zero values of any char[ARGSIZE] or char[ARGLEN][ARGSIZE] arrays.
+static char zero[ARGSIZE] SEC(".rodata") = {0};
+static char zero_argv[ARGLEN][ARGSIZE] SEC(".rodata") = {0};
+
 // Tracepoint at the top of execve() syscall.
 SEC("tracepoint/syscalls/sys_enter_execve")
 int enter_execve(struct exec_info *ctx) {
-	// Reserve memory for our event on the `events` perf ring buffer defined
-	// above.
+	// Reserve memory for our event on the `events` ring buffer defined above.
 	struct event_t *event;
 	event = bpf_ringbuf_reserve(&events, sizeof(struct event_t), 0);
 	if (!event) {
@@ -58,22 +62,43 @@ int enter_execve(struct exec_info *ctx) {
 		return 1;
 	}
 
-	// Store calling process details.
+	// Zero out the filename, argv and comm arrays on the event for safety. If
+	// we don't do this, we risk sending random kernel memory back to userspace.
+	s64 ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
+	if (ret != 0) {
+		bpf_printk("zero out filename: %d", ret);
+		bpf_ringbuf_discard(event, 0);
+		return 1;
+	}
+	ret = bpf_probe_read_kernel(&event->argv, sizeof(zero_argv), &zero_argv);
+	if (ret != 0) {
+		bpf_printk("zero out argv: %d", ret);
+		bpf_ringbuf_discard(event, 0);
+		return 1;
+	}
+	ret = bpf_probe_read_kernel(&event->comm, sizeof(zero), &zero);
+	if (ret != 0) {
+		bpf_printk("zero out comm: %d", ret);
+		bpf_ringbuf_discard(event, 0);
+		return 1;
+	}
+
+	// Store process/calling process details.
 	u64 uidgid = bpf_get_current_uid_gid();
 	u64 pidtgid = bpf_get_current_pid_tgid();
-	event->uid = uidgid >> 32;  // uid is the first 32 bits
-	event->gid = uidgid << 32;  // gid is the last 32 bits
-	event->pid = pidtgid >> 32; // pid is the first 32 bits
+	event->uid = uidgid;       // uid is the first 32 bits
+	event->gid = uidgid << 32; // gid is the last 32 bits
+	event->pid = pidtgid;      // pid is the first 32 bits
 	event->cgroup = bpf_get_current_cgroup_id();
-	s64 ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
+	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret != 0) {
 		bpf_printk("could not get current comm: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 
-	// Write the filename instead of ctx->argv[0] because the filename contains
-	// the full path to the file which is more useful.
+	// Write the filename in addition to argv[0] because the filename contains
+	// the full path to the file which could be more useful in some situations.
 	ret = bpf_probe_read_user_str(event->filename, sizeof(event->filename), ctx->filename);
 	if (ret < 0) {
 		bpf_printk("could not read filename into event struct: %d", ret);
@@ -81,9 +106,13 @@ int enter_execve(struct exec_info *ctx) {
 		return 1;
 	}
 
-	// TODO (dean): investigate memory corruption (returning too many args and
-	//              reading memory we shouldn't be returning)
+	// Copy everything from ctx->argv to event->argv, incrementing event->argc
+	// as we go.
 	for (s32 i = 0; i < ARGLEN; i++) {
+		if (!(&ctx->argv[i])) {
+			goto out;
+		}
+
 		// Copying the arg into it's own variable before copying it into
 		// event->argv[i] prevents memory corruption.
 		const u8 *argp = NULL;
@@ -93,18 +122,19 @@ int enter_execve(struct exec_info *ctx) {
 		}
 
 		// Copy argp to event->argv[i].
-		// TODO (dean): why does using bpf_probe_read_user_str cause args to get
-		//              truncated and/or corrupted here?
-		ret = bpf_probe_read_user(event->argv[i], sizeof(event->argv[i]), argp);
-		if (ret != 0) {
-			continue;
+		ret = bpf_probe_read_user_str(event->argv[i], sizeof(event->argv[i]), argp);
+		if (ret < 0) {
+			bpf_printk("read argv %d: %d", i, ret);
+			goto out;
 		}
+
+		event->argc++;
 	}
 
 	// This won't get hit if we `goto out` in the loop above. This is to signify
 	// to userspace that we couldn't copy all of the arguments because it
 	// exceeded ARGLEN.
-	event->truncated = 1;
+	event->argc++;
 
 out:
 	// Write the event to the ring buffer and notify userspace. This will cause

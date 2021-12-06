@@ -146,7 +146,7 @@ func run(ctx context.Context, compiler, outputFormat string) error {
 			}
 
 			_, _ = fmt.Printf("[pid=%v, cgroup.id=%v, comm=%q] %v%v\n",
-				event.Caller.PID, event.Caller.Cgroup.ID, event.Caller.Comm,
+				event.PID, event.CgroupID, event.Comm,
 				shellquote.Join(event.Argv...), ellipsis,
 			)
 		} else {

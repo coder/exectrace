@@ -23,43 +23,20 @@ type Event struct {
 	// Argv because they were
 	Truncated bool `json:"truncated"`
 
-	// Caller contains details about the process that made the `exec()` syscall.
-	Caller Process `json:"caller"`
-}
-
-type Process struct {
+	// These values are of the new process. Keep in mind that the exec call may
+	// fail and the PID will be released in such a case.
 	PID uint32 `json:"pid"`
-	// Comm is the "name" of the executable minus the path.
-	Comm string `json:"comm"`
-	UID  uint32 `json:"uid"`
-	GID  uint32 `json:"gid"`
+	UID uint32 `json:"uid"`
+	GID uint32 `json:"gid"`
 
-	Cgroup Cgroup `json:"cgroup"`
-}
-
-type Cgroup struct {
-	// ID contains the cgroup's ID. This number is equal to the inode number of
-	// the paths in the cgroup/cgroup2 filesystem.
+	// ID contains the cgroup ID of the process. This number is equal to the
+	// inode number of the paths in the cgroup2 filesystem.
 	//
 	// You can find cgroup paths or the unified cgroup2 path by running:
 	//     $ find /path/to/cgroupfs -inum 1234
 	// Or use the handy fields below.
-	ID uint64 `json:"id"`
-	// PathsV1 contains all cgroup (v1) paths that match the cgroup ID. This is
-	// a slice because there can be multiple. The prefix of the cgroup
-	// mountpoint is removed in advance, but the forward slash prefix is
-	// retained.
-	//
-	// e.g. `/proc-sys-fs-binfmt_misc.mount/memory.failcnt`, which was
-	// originally at
-	// `/sys/fs/cgroup/memory/proc-sys-fs-binfmt_misc.mount/memory.failcnt`.
-	PathsV1 []string `json:"paths_v1"`
-	// PathsV2 contains all cgroup2 paths that match the cgroup ID. The prefix
-	// of the cgroup mountpoint is removed in advance, but the forward slash
-	// prefix is retained.
-	//
-	// e.g. `/user.slice/user-1002.slice/session-1.scope`, which was originally
-	// at
-	// `/sys/fs/cgroup/unified/user.slice/user-1002.slice/session-1.scope`.
-	PathV2 string `json:"paths_v2"`
+	CgroupID uint64 `json:"id"`
+
+	// Comm is the "name" of the parent executable minus the path.
+	Comm string `json:"comm"`
 }
