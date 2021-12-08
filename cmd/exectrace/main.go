@@ -38,6 +38,7 @@ func main() {
 func rootCmd() *cobra.Command {
 	var (
 		compiler     string
+		pidNS        uint64
 		outputFormat string
 	)
 
@@ -49,7 +50,7 @@ func rootCmd() *cobra.Command {
 				log.Fatalf(`output format must be "text" or "json", got %q`, outputFormat)
 			}
 
-			err := run(cmd.Context(), compiler, outputFormat)
+			err := run(cmd.Context(), compiler, pidNS, outputFormat)
 			if err != nil {
 				log.Fatalf("run exectrace: %+v", err)
 			}
@@ -57,6 +58,7 @@ func rootCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&compiler, "compiler", "c", "", "Compiler executable name or path (defaults to the first suitable clang compiler found)")
+	cmd.Flags().Uint64VarP(&pidNS, "pid-ns", "p", 0, "PID NS ID to filter events from, you can get this by doing `readlink /proc/self/ns/pid`")
 	cmd.Flags().StringVarP(&outputFormat, "output", "f", "text", "Output format, text or json")
 
 	return cmd
@@ -73,7 +75,7 @@ func findCompiler() (string, error) {
 	return "", xerrors.New("could not find suitable compiler in PATH")
 }
 
-func run(ctx context.Context, compiler, outputFormat string) error {
+func run(ctx context.Context, compiler string, pidNS uint64, outputFormat string) error {
 	var err error
 	if compiler == "" {
 		compiler, err = findCompiler()
@@ -88,6 +90,9 @@ func run(ctx context.Context, compiler, outputFormat string) error {
 	// compiled BPF ELF.
 	out, err := exectrace.CompileProgram(ctx, exectrace.CompileOptions{
 		Compiler: compiler,
+		Filter: exectrace.Filter{
+			PidNS: pidNS,
+		},
 	})
 	if err != nil {
 		return xerrors.Errorf("compile program: %w", err)

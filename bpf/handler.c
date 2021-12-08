@@ -5,6 +5,10 @@
 // use many BPF helpers (including `bpf_probe_read_*`).
 u8 __license[] SEC("license") = "Dual MIT/GPL";
 
+//{{if .Filter.PidNS}}
+#define PIDNS_FILTER {{.Filter.PidNS}}
+//{{end}}
+
 // These constants must be kept in sync with Go.
 #define ARGLEN  32   // maximum amount of args in argv we'll copy
 #define ARGSIZE 1024 // maximum byte length of each arg in argv we'll copy
@@ -54,6 +58,60 @@ static char zero_argv[ARGLEN][ARGSIZE] SEC(".rodata") = {0};
 // Tracepoint at the top of execve() syscall.
 SEC("tracepoint/syscalls/sys_enter_execve")
 int enter_execve(struct exec_info *ctx) {
+	s64 ret;
+
+#ifdef PIDNS_FILTER
+	struct task_struct *task = (void *)bpf_get_current_task();
+
+	struct nsproxy *ns;
+	ret = bpf_probe_read_kernel(&ns, sizeof(ns), &task->nsproxy);
+	if (ret) {
+		bpf_printk("could not read current task nsproxy: %d", ret);
+		return 1;
+	}
+
+	struct pid_namespace *pidns;
+	ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &ns->pid_ns_for_children);
+	if (ret) {
+		bpf_printk("could not read current task pidns: %d", ret);
+		return 1;
+	}
+
+	// Iterate up the PID NS tree until we either find the net namespace we're
+	// filtering for, or until there are no more parent namespaces. PID
+	// namespaces have a hierarchy limit of 32 since kernel 3.7.
+	struct ns_common nsc;
+	#pragma unroll
+	for (s32 i = 0; i < 32; i++) {
+		if (i != 0) {
+			ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &pidns->parent);
+			if (ret) {
+				bpf_printk("could not read parent pidns on iteration %d: %d", i, ret);
+				return 1;
+			}
+		}
+		if (!pidns) {
+			// No more PID namespaces.
+			return 1;
+		}
+
+		ret = bpf_probe_read_kernel(&nsc, sizeof(nsc), &pidns->ns);
+		if (ret) {
+			bpf_printk("could not read pidns common on iteration %d: %d", i, ret);
+			return 1;
+		}
+
+		if (nsc.inum == PIDNS_FILTER) {
+			break;
+		}
+		if (i == 31) {
+			// Iterated through all 32 parent PID namespaces and couldn't find
+			// what we were looking for.
+			return 1;
+		}
+	}
+#endif /* PIDNS_FILTER */
+
 	// Reserve memory for our event on the `events` ring buffer defined above.
 	struct event_t *event;
 	event = bpf_ringbuf_reserve(&events, sizeof(struct event_t), 0);
@@ -64,7 +122,7 @@ int enter_execve(struct exec_info *ctx) {
 
 	// Zero out the filename, argv and comm arrays on the event for safety. If
 	// we don't do this, we risk sending random kernel memory back to userspace.
-	s64 ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
+	ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
 	if (ret != 0) {
 		bpf_printk("zero out filename: %d", ret);
 		bpf_ringbuf_discard(event, 0);

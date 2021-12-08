@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"text/template"
 
 	"golang.org/x/xerrors"
 )
@@ -20,6 +21,10 @@ const (
 	programFile = "handler.c"
 )
 
+var (
+	tplFiles = [...]string{programFile}
+)
+
 // SourceFiles contains all of the C source files and headers needed to compile
 // the eBPF program.
 //go:embed bpf/*.c bpf/*.h
@@ -27,20 +32,38 @@ var SourceFiles embed.FS
 
 // copySource copys all of the files from SourceFiles to the specified
 // directory.
-func copySource(destDir string) error {
+func copySource(opts CompileOptions) error {
+	// Copy template files first.
+	tplFilesMap := make(map[string]struct{}, len(tplFiles))
+	for _, f := range tplFiles {
+		src := filepath.Join(programDir, f)
+		dest := filepath.Join(opts.TempDir, f)
+		err := copySourceFileTpl(src, dest, &opts)
+		if err != nil {
+			return xerrors.Errorf("extract file %q from executable to dest %q: %w", src, dest, err)
+		}
+
+		tplFilesMap[f] = struct{}{}
+	}
+
+	// Copy non-template files.
 	ents, err := SourceFiles.ReadDir(programDir)
 	if err != nil {
 		return xerrors.Errorf("ReadDir on embedded FS: %w", err)
 	}
-
 	for _, ent := range ents {
 		if !ent.Type().IsRegular() {
 			continue
 		}
+		if _, ok := tplFilesMap[ent.Name()]; ok {
+			continue
+		}
 
-		err = copySourceFile(filepath.Join(programDir, ent.Name()), filepath.Join(destDir, ent.Name()))
+		src := filepath.Join(programDir, ent.Name())
+		dest := filepath.Join(opts.TempDir, ent.Name())
+		err = copySourceFile(src, dest)
 		if err != nil {
-			return xerrors.Errorf("extract file %q from executable to dest dir %q: %w", ent.Name(), destDir, err)
+			return xerrors.Errorf("extract file %q from executable to dest %q: %w", src, dest, err)
 		}
 	}
 
@@ -48,6 +71,10 @@ func copySource(destDir string) error {
 }
 
 func copySourceFile(src, dest string) error {
+	return copySourceFileTpl(src, dest, nil)
+}
+
+func copySourceFileTpl(src, dest string, opts *CompileOptions) error {
 	// Open the file from the embedded FS.
 	srcFile, err := SourceFiles.Open(src)
 	if err != nil {
@@ -71,9 +98,29 @@ func copySourceFile(src, dest string) error {
 	}
 	defer destFile.Close()
 
-	_, err = io.Copy(destFile, srcFile)
+	// If there are no options provided, copy normally.
+	if opts == nil {
+		_, err = io.Copy(destFile, srcFile)
+		if err != nil {
+			return xerrors.Errorf("copy file from source %q to destination file %q: %w", src, dest, err)
+		}
+		return nil
+	}
+
+	// Template the file before writing.
+	raw, err := io.ReadAll(srcFile)
 	if err != nil {
-		return xerrors.Errorf("copy file from source %q to destination file %q: %w", src, dest, err)
+		return xerrors.Errorf("read all data from source file %q: %w", src, err)
+	}
+
+	tpl, err := template.New("exectrace").Parse(string(raw))
+	if err != nil {
+		return xerrors.Errorf("parse template for source file %q: %w", src, err)
+	}
+
+	err = tpl.Execute(destFile, opts)
+	if err != nil {
+		return xerrors.Errorf("execute parsed template with CompileOptions: %w", err)
 	}
 
 	return nil

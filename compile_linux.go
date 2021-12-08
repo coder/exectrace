@@ -38,7 +38,7 @@ func CompileProgram(ctx context.Context, opts CompileOptions) ([]byte, error) {
 		// successful.
 		defer func() { _ = os.RemoveAll(opts.TempDir) }()
 	}
-	err = copySource(opts.TempDir)
+	err = copySource(opts)
 	if err != nil {
 		return nil, xerrors.Errorf("copy source files from binary to temporary compilation dir: %w", err)
 	}
