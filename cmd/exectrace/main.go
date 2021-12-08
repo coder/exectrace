@@ -104,30 +104,30 @@ func run(ctx context.Context, compiler string, pidNS uint64, outputFormat string
 		return xerrors.Errorf("load BPF objects from compiled bytes: %w", err)
 	}
 
-	// Handler exposes a handy `h.Read()` method for reading events from the
+	// Tracer exposes a handy `t.Read()` method for reading events from the
 	// eBPF program running in the kernel, used below.
-	h, err := exectrace.NewHandler(objs)
+	t, err := exectrace.NewTracer(objs)
 	if err != nil {
-		return xerrors.Errorf("create handler: %w", err)
+		return xerrors.Errorf("create tracer: %w", err)
 	}
-	defer h.Close()
+	defer t.Close()
 
 	// Starts the eBPF program in the kernel.
-	err = h.Start()
+	err = t.Start()
 	if err != nil {
-		return xerrors.Errorf("start handler: %w", err)
+		return xerrors.Errorf("start tracer: %w", err)
 	}
 
-	// When we get a SIGTERM we should close the handler so the loop exits.
+	// When we get a SIGTERM we should close the tracer so the loop exits.
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-signals
 
-		log.Print("signal received, closing handler")
-		err := h.Close()
+		log.Print("signal received, closing tracer")
+		err := t.Close()
 		if err != nil {
-			log.Fatalf("error closing handler: %+v", err)
+			log.Fatalf("error closing tracer: %+v", err)
 		}
 	}()
 
@@ -135,7 +135,7 @@ func run(ctx context.Context, compiler string, pidNS uint64, outputFormat string
 
 	log.Println("Waiting for events..")
 	for {
-		event, err := h.Read()
+		event, err := t.Read()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
@@ -150,16 +150,13 @@ func run(ctx context.Context, compiler string, pidNS uint64, outputFormat string
 				ellipsis = "..."
 			}
 
-			_, _ = fmt.Printf("[pid=%v, cgroup.id=%v, comm=%q] %v%v\n",
-				event.PID, event.CgroupID, event.Comm,
-				shellquote.Join(event.Argv...), ellipsis,
-			)
-		} else {
-			err = enc.Encode(event)
-			if err != nil {
-				log.Printf("error writing event as JSON: %+v", err)
-				continue
-			}
+			_, _ = fmt.Printf("[%v, comm=%q] %v%v\n", event.PID, event.Comm, shellquote.Join(event.Argv...), ellipsis)
+			continue
+		}
+		err = enc.Encode(event)
+		if err != nil {
+			log.Printf("error writing event as JSON: %+v", err)
+			continue
 		}
 	}
 }

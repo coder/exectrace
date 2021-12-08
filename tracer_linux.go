@@ -22,7 +22,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// These cosntants are defined in `bpf/handler.c` and must be kept in sync.
+// These constants are defined in `bpf/handler.c` and must be kept in sync.
 const (
 	ARGLEN  = 32
 	ARGSIZE = 1024
@@ -39,13 +39,12 @@ type event struct {
 	UID      uint32
 	GID      uint32
 	PID      uint32
-	Cgroup   uint64
 
 	// Name of the calling process.
 	Comm [ARGSIZE]byte
 }
 
-type handler struct {
+type tracer struct {
 	objs BPFObjects
 
 	tp link.Link
@@ -56,11 +55,11 @@ type handler struct {
 	closed    chan struct{}
 }
 
-var _ Handler = &handler{}
+var _ Tracer = &tracer{}
 
-// NewHandler creates a Handler using the given BPFObjects.
-func NewHandler(objs BPFObjects) (Handler, error) {
-	h := &handler{
+// NewTracer creates a Tracer using the given BPFObjects.
+func NewTracer(objs BPFObjects) (Tracer, error) {
+	t := &tracer{
 		objs: objs,
 
 		startOnce: sync.Once{},
@@ -71,35 +70,35 @@ func NewHandler(objs BPFObjects) (Handler, error) {
 	// It could be very bad if someone forgot to close this, so we'll try to
 	// detect when it doesn't get closed and log a warning.
 	stack := debug.Stack()
-	runtime.SetFinalizer(h, func(h *handler) {
-		err := h.Close()
-		if xerrors.Is(err, errhandlerClosed) {
+	runtime.SetFinalizer(t, func(t *tracer) {
+		err := t.Close()
+		if xerrors.Is(err, errTracerClosed) {
 			return
 		}
 
-		log.Printf("handler was finalized but was not closed, created at: %s", stack)
-		log.Print("handlers must be closed when finished with to avoid leaked kernel resources")
+		log.Printf("tracer was finalized but was not closed, created at: %s", stack)
+		log.Print("tracers must be closed when finished with to avoid leaked kernel resources")
 		if err != nil {
-			log.Printf("closing handler failed: %+v", err)
+			log.Printf("closing tracer failed: %+v", err)
 		}
 	})
 
-	return h, nil
+	return t, nil
 }
 
 // Start loads the eBPF programs and maps into the kernel and starts them.
 // You should immediately attach a for loop running `h.Read()` after calling
 // this successfully.
-func (h *handler) Start() error {
-	if h.isClosed() {
-		return errhandlerClosed
+func (t *tracer) Start() error {
+	if t.isClosed() {
+		return errTracerClosed
 	}
 
 	var (
 		didStart bool
 		startErr error
 	)
-	h.startOnce.Do(func() {
+	t.startOnce.Do(func() {
 		didStart = true
 
 		// If we don't startup successfully, we need to make sure all of the
@@ -108,7 +107,7 @@ func (h *handler) Start() error {
 		defer func() {
 			if !ok {
 				// Best effort.
-				_ = h.Close()
+				_ = t.Close()
 			}
 		}()
 
@@ -122,14 +121,14 @@ func (h *handler) Start() error {
 
 		// Attach the eBPF program to the `sys_enter_execve` tracepoint, which
 		// is triggered at the beginning of each `execve()` syscall.
-		h.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", h.objs.enterExecveProg())
+		t.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", t.objs.enterExecveProg())
 		if err != nil {
 			startErr = xerrors.Errorf("open tracepoint: %w", err)
 			return
 		}
 
 		// Create the reader for the event ringbuf.
-		h.rb, err = ringbuf.NewReader(h.objs.eventsMap())
+		t.rb, err = ringbuf.NewReader(t.objs.eventsMap())
 		if err != nil {
 			startErr = xerrors.Errorf("open ringbuf reader: %w", err)
 			return
@@ -139,24 +138,24 @@ func (h *handler) Start() error {
 	})
 
 	if !didStart {
-		return xerrors.New("handler has already been started")
+		return xerrors.New("tracer has already been started")
 	}
 	return startErr
 }
 
 // Read reads an event from the eBPF program via the ringbuf, parses it and
-// returns it. If the *handler is closed during the blocked call, and error that
+// returns it. If the *tracer is closed during the blocked call, and error that
 // wraps io.EOF will be returned.
-func (h *handler) Read() (*Event, error) {
-	rb := h.rb
+func (t *tracer) Read() (*Event, error) {
+	rb := t.rb
 	if rb == nil {
-		return nil, xerrors.New("ringbuf reader is not initialized, handler may not be open or may have been closed")
+		return nil, xerrors.New("ringbuf reader is not initialized, tracer may not be open or may have been closed")
 	}
 
 	record, err := rb.Read()
 	if err != nil {
 		if errors.Is(err, ringbuf.ErrClosed) {
-			return nil, xerrors.Errorf("handler closed: %w", io.EOF)
+			return nil, xerrors.Errorf("tracer closed: %w", io.EOF)
 		}
 
 		return nil, xerrors.Errorf("read from ringbuf: %w", err)
@@ -176,7 +175,6 @@ func (h *handler) Read() (*Event, error) {
 		PID:       rawEvent.PID,
 		UID:       rawEvent.UID,
 		GID:       rawEvent.GID,
-		CgroupID:  rawEvent.Cgroup,
 		Comm:      unix.ByteSliceToString(rawEvent.Comm[:]),
 	}
 
@@ -196,9 +194,9 @@ func (h *handler) Read() (*Event, error) {
 	return ev, nil
 }
 
-func (h *handler) isClosed() bool {
+func (t *tracer) isClosed() bool {
 	select {
-	case <-h.closed:
+	case <-t.closed:
 		return true
 	default:
 	}
@@ -209,31 +207,31 @@ func (h *handler) isClosed() bool {
 // Close gracefully closes and frees all resources associated with the eBPF
 // tracepoints, maps and other resources. Any blocked `Read()` operations will
 // return an error that wraps `io.EOF`.
-func (h *handler) Close() error {
-	h.closeLock.Lock()
-	defer h.closeLock.Unlock()
-	if h.isClosed() {
-		return errhandlerClosed
+func (t *tracer) Close() error {
+	t.closeLock.Lock()
+	defer t.closeLock.Unlock()
+	if t.isClosed() {
+		return errTracerClosed
 	}
-	close(h.closed)
-	runtime.SetFinalizer(h, nil)
+	close(t.closed)
+	runtime.SetFinalizer(t, nil)
 
 	// Close everything started in h.Start() in reverse order.
 	var merr error
-	if h.rb != nil {
-		err := h.rb.Close()
+	if t.rb != nil {
+		err := t.rb.Close()
 		if err != nil {
 			merr = multierror.Append(merr, xerrors.Errorf("close ringbuf reader: %w", err))
 		}
 	}
-	if h.tp != nil {
-		err := h.tp.Close()
+	if t.tp != nil {
+		err := t.tp.Close()
 		if err != nil {
 			merr = multierror.Append(merr, xerrors.Errorf("close tracepoint: %w", err))
 		}
 	}
 
-	// It's up to the caller to close h.objs.
+	// It's up to the caller to close t.objs.
 
 	return merr
 }

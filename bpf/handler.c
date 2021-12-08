@@ -38,7 +38,6 @@ struct event_t {
 	u32 uid;
 	u32 gid;
 	u32 pid;
-	u64 cgroup;
 
 	// Name of the calling process.
 	u8  comm[ARGSIZE];
@@ -147,7 +146,6 @@ int enter_execve(struct exec_info *ctx) {
 	event->uid = uidgid;       // uid is the first 32 bits
 	event->gid = uidgid << 32; // gid is the last 32 bits
 	event->pid = pidtgid;      // pid is the first 32 bits
-	event->cgroup = bpf_get_current_cgroup_id();
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret != 0) {
 		bpf_printk("could not get current comm: %d", ret);

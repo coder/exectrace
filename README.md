@@ -1,7 +1,7 @@
 # exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/execsnoop.svg)](https://pkg.go.dev/cdr.dev/execsnoop)
 
-Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a
-simple Go library.
+Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a Go
+library.
 
 exectrace compiles an [eBPF program](./bpf/handler.c) with the specified `clang`
 compiler on demand (which is very quick), then loads the program into the kernel
@@ -21,8 +21,8 @@ $ go get -u cdr.dev/exectrace
 Things you'll need to get started:
 
 - Root access, `CAP_SYS_ADMIN` or `CAP_BPF`.
-  - protip: you can use `go run -exec sudo ./cmd/program` to compile a
-    program and start it with `sudo`)
+  - tip: you can use `go run -exec sudo ./cmd/program` to compile a program and
+    start it with `sudo`
 - A `clang` compiler. The eBPF program is compiled on demand.
   - You'll also need to know the executable name of your compiler (e.g.
     `clang-13`) or the absolute path to it.
@@ -34,8 +34,8 @@ $ exectrace --help
 
 $ sudo exectrace --compiler clang-13
 2021/12/01 16:42:02 Waiting for events..
-[pid=1188921, cgroup.id=2870, comm="node"] /bin/sh -c 'which ps'
-[pid=1188922, cgroup.id=2870, comm="sh"] which ps
+[1188921, comm="node"] /bin/sh -c 'which ps'
+[1188922, comm="sh"] which ps
 ```
 
 ## Usage

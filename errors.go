@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	errhandlerClosed = xerrors.New("handler is closed")
+	errTracerClosed  = xerrors.New("tracer is closed")
 	errObjectsClosed = xerrors.New("objects are closed")
 
 	errUnsupportedOS = xerrors.Errorf(`%q is an unsupported OS, only "linux" is supported`, runtime.GOOS)
@@ -16,7 +16,7 @@ var (
 // Suppress unused variable errors. These variables are used in files that are
 // not included in all builds.
 var (
-	_ = errhandlerClosed
+	_ = errTracerClosed
 	_ = errObjectsClosed
 	_ = errUnsupportedOS
 )
