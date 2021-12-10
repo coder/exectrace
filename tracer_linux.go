@@ -62,7 +62,7 @@ var _ Tracer = &tracer{}
 
 // New instantiates all of the BPF objects into the running kernel, starts
 // tracing, and returns the created Tracer. After calling this successfully, the
-// caler should immediately attach a for loop running `h.Read()`.
+// caller should immediately attach a for loop running `h.Read()`.
 //
 // The returned Tracer MUST be closed when not needed anymore otherwise kernel
 // resources may be leaked.
@@ -133,8 +133,8 @@ func (t *tracer) start() error {
 	}
 
 	// Set filter options on the filters map.
-	if t.opts.Filter.PidNS != 0 {
-		err = t.objs.FiltersMap.Update(uint32(0), t.opts.Filter.PidNS, ebpf.UpdateAny)
+	if t.opts.FilterPidNS != 0 {
+		err = t.objs.FiltersMap.Update(uint32(0), t.opts.FilterPidNS, ebpf.UpdateAny)
 		if err != nil {
 			return xerrors.Errorf("apply PID NS filter to eBPF map: %w", err)
 		}

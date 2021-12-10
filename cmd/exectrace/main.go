@@ -53,9 +53,7 @@ func rootCmd() *cobra.Command {
 
 func run(pidNS uint32, outputFormat string) error {
 	t, err := exectrace.New(&exectrace.TracerOpts{
-		Filter: exectrace.Filter{
-			PidNS: pidNS,
-		},
+		FilterPidNS: pidNS,
 	})
 	if err != nil {
 		return xerrors.Errorf("start tracer: %w", err)
