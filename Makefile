@@ -15,16 +15,6 @@ CXX = clang-13
 clean:
 	rm -rf bpf/handler-bpfeb.o bpf/handler-bpfel.o
 
-# This shouldn't be called unless necessary to use new kernel headers.
-.PHONY: update-vmlinux
-update-vmlinux:
-	./bpf/update_vmlinux.sh
-
-# This shouldn't be called unless necessary to update libbpf.
-.PHONY: update-libbpf
-update-libbpf:
-	./bpf/update_bpf.sh
-
 .PHONY: all
 all: bpf/handler-bpfeb.o bpf/handler-bpfel.o
 
@@ -59,3 +49,36 @@ bpf/handler-bpfeb.o bpf/handler-bpfel.o: bpf/*.h bpf/*.c
 		-target "$(@F:handler-%.o=%)" \
 		-c ./handler.c \
 		-o "$(@F)"
+
+.PHONY: fmt
+fmt: fmt/go fmt/prettier
+
+.PHONY: fmt/go
+fmt/go:
+	go fmt ./...
+
+.PHONY: fmt/prettier
+fmt/prettier:
+	prettier -w .
+
+.PHONY: lint
+lint: lint/go lint/c
+
+.PHONY: lint/go
+lint/go: lint/go/linux lint/go/other
+
+.PHONY: lint/go/linux
+lint/go/linux:
+	golangci-lint run ./...
+
+.PHONY: lint/go/other
+lint/go/other:
+    # The windows and darwin builds include the same files.
+	GOOS=windows golangci-lint run ./...
+
+.PHONY: lint/c
+lint/c:
+	clang-tidy-13 \
+		-checks=-*,cert-*,linuxkernel-*,clang-analyzer-*,llvm-*,performance-*,portability-*,readability-* \
+		-warnings-as-errors=* \
+		./bpf/handler.c

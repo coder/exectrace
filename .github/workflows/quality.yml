@@ -1,0 +1,78 @@
+name: coder
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  actions: none
+  checks: none
+  contents: read
+  deployments: none
+  issues: none
+  packages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      - name: Run make fmt
+        run: make fmt/go
+
+      - name: Check for unstaged files
+        run: ./ci/scripts/check_unstaged.sh
+
+  lint-go:
+    name: lint/go
+    runs-on: ubuntu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      # Linting needs to be done on each build variation of GOOS.
+      - name: Run make lint/go/linux
+        run: make lint/go/linux
+
+      # The windows and darwin builds include the same files.
+      - name: Run make lint/go/other
+        run: make lint/go/other
+
+  lint-c:
+    name: lint/c
+    runs-on: ubuntu
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install clang
+        uses: ./.github/actions/install-clang
+
+      - name: Run make lint/c
+        run: make lint/c

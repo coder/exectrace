@@ -1,28 +1,32 @@
 #include "vmlinux.h"
-#include "bpf_helpers.h"
 #include "bpf_core_read.h"
+#include "bpf_helpers.h"
 
 // This license needs to be GPL-compatible because the BTF verifier won't let us
 // use many BPF helpers (including `bpf_probe_read_*`).
-u8 __license[] SEC("license") = "Dual MIT/GPL";
+u8 __license[] SEC("license") = "Dual MIT/GPL"; // NOLINT
 
 // These constants must be kept in sync with Go.
 #define ARGLEN  32   // maximum amount of args in argv we'll copy
 #define ARGSIZE 1024 // maximum byte length of each arg in argv we'll copy
 
+// Maximum levels of PID namespace nesting. PID namespaces have a hierarchy
+// limit of 32 since kernel 3.7.
+#define MAX_PIDNS_HIERARCHY 32
+
 // This struct is defined according to
 // /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format
 struct exec_info {
-	u16 common_type;              // offset=0,  size=2
-	u8  common_flags;             // offset=2,  size=1
-	u8  common_preempt_count;     // offset=3,  size=1
-	s32 common_pid;               // offset=4,  size=4
+	u16 common_type;            // offset=0,  size=2
+	u8  common_flags;           // offset=2,  size=1
+	u8  common_preempt_count;   // offset=3,  size=1
+	s32 common_pid;             // offset=4,  size=4
 
-	s32             __syscall_nr; // offset=8,  size=4
-	u32             __pad;        // offset=12, size=4 (pad)
-	const u8        *filename;    // offset=16, size=8 (ptr)
-	const u8 *const *argv;        // offset=24, size=8 (ptr)
-	const u8 *const *envp;        // offset=32, size=8 (ptr)
+	s32             syscall_nr; // offset=8,  size=4
+	u32             pad;        // offset=12, size=4 (pad)
+	const u8        *filename;  // offset=16, size=8 (ptr)
+	const u8 *const *argv;      // offset=24, size=8 (ptr)
+	const u8 *const *envp;      // offset=32, size=8 (ptr)
 };
 
 // The event struct. This struct must be kept in sync with the Golang
@@ -66,7 +70,7 @@ static char zero_argv[ARGLEN][ARGSIZE] SEC(".rodata") = {0};
 // under the given target_pidns. Returns a 0 if successful, or a negative error
 // on failure.
 s32 filter_pidns(u32 target_pidns) {
-	struct task_struct *task = (void *)bpf_get_current_task();
+	struct task_struct *task = (void *)bpf_get_current_task(); // NOLINT(performance-no-int-to-ptr)
 
 	struct nsproxy *ns;
 	s64 ret = bpf_core_read(&ns, sizeof(ns), &task->nsproxy);
@@ -83,11 +87,10 @@ s32 filter_pidns(u32 target_pidns) {
 	}
 
 	// Iterate up the PID NS tree until we either find the net namespace we're
-	// filtering for, or until there are no more parent namespaces. PID
-	// namespaces have a hierarchy limit of 32 since kernel 3.7.
+	// filtering for, or until there are no more parent namespaces.
 	struct ns_common nsc;
 	#pragma unroll
-	for (s32 i = 0; i < 32; i++) {
+	for (s32 i = 0; i < MAX_PIDNS_HIERARCHY; i++) {
 		if (i != 0) {
 			ret = bpf_core_read(&pidns, sizeof(pidns), &pidns->parent);
 			if (ret) {
@@ -158,7 +161,7 @@ s32 enter_execve(struct exec_info *ctx) {
 	u64 uidgid = bpf_get_current_uid_gid();
 	u64 pidtgid = bpf_get_current_pid_tgid();
 	event->uid = uidgid;       // uid is the first 32 bits
-	event->gid = uidgid << 32; // gid is the last 32 bits
+	event->gid = uidgid << 32; // gid is the last 32 bits NOLINT(readability-magic-numbers)
 	event->pid = pidtgid;      // pid is the first 32 bits
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret) {
