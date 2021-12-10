@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
@@ -27,6 +28,8 @@ const (
 	ARGLEN  = 32
 	ARGSIZE = 1024
 )
+
+var errTracerClosed = xerrors.New("tracer is closed")
 
 // event contains details about each exec call, sent from the eBPF program to
 // userspace through a perf ring buffer. This type must be kept in sync with
@@ -45,26 +48,48 @@ type event struct {
 }
 
 type tracer struct {
-	objs BPFObjects
+	opts *TracerOpts
 
-	tp link.Link
-	rb *ringbuf.Reader
+	objs *bpfObjects
+	tp   link.Link
+	rb   *ringbuf.Reader
 
-	startOnce sync.Once
 	closeLock sync.Mutex
 	closed    chan struct{}
 }
 
 var _ Tracer = &tracer{}
 
-// NewTracer creates a Tracer using the given BPFObjects.
-func NewTracer(objs BPFObjects) (Tracer, error) {
-	t := &tracer{
-		objs: objs,
+// New instantiates all of the BPF objects into the running kernel, starts
+// tracing, and returns the created Tracer. After calling this successfully, the
+// caler should immediately attach a for loop running `h.Read()`.
+//
+// The returned Tracer MUST be closed when not needed anymore otherwise kernel
+// resources may be leaked.
+func New(opts *TracerOpts) (Tracer, error) {
+	if opts == nil {
+		opts = &TracerOpts{}
+	}
 
-		startOnce: sync.Once{},
+	objs, err := loadBPFObjects()
+	if err != nil {
+		return nil, xerrors.Errorf("load BPF objects: %w", err)
+	}
+
+	t := &tracer{
+		opts: opts,
+		objs: objs,
+		tp:   nil,
+		rb:   nil,
+
 		closeLock: sync.Mutex{},
 		closed:    make(chan struct{}),
+	}
+	err = t.start()
+	if err != nil {
+		// Best effort.
+		_ = t.Close()
+		return nil, xerrors.Errorf("start tracer: %w", err)
 	}
 
 	// It could be very bad if someone forgot to close this, so we'll try to
@@ -86,61 +111,50 @@ func NewTracer(objs BPFObjects) (Tracer, error) {
 	return t, nil
 }
 
-// Start loads the eBPF programs and maps into the kernel and starts them.
+// start loads the eBPF programs and maps into the kernel and starts them.
 // You should immediately attach a for loop running `h.Read()` after calling
 // this successfully.
-func (t *tracer) Start() error {
-	if t.isClosed() {
-		return errTracerClosed
+func (t *tracer) start() error {
+	// If we don't startup successfully, we need to make sure all of the
+	// stuff is cleaned up properly or we'll be leaking kernel resources.
+	ok := false
+	defer func() {
+		if !ok {
+			// Best effort.
+			_ = t.Close()
+		}
+	}()
+
+	// Allow the current process to lock memory for eBPF resources. This
+	// does nothing on 5.11+ kernels which don't need this.
+	err := rlimit.RemoveMemlock()
+	if err != nil {
+		return xerrors.Errorf("remove memlock: %w", err)
 	}
 
-	var (
-		didStart bool
-		startErr error
-	)
-	t.startOnce.Do(func() {
-		didStart = true
-
-		// If we don't startup successfully, we need to make sure all of the
-		// stuff is cleaned up properly or we'll be leaking kernel resources.
-		ok := false
-		defer func() {
-			if !ok {
-				// Best effort.
-				_ = t.Close()
-			}
-		}()
-
-		// Allow the current process to lock memory for eBPF resources. This
-		// does nothing on 5.11+ kernels which don't need this.
-		err := rlimit.RemoveMemlock()
+	// Set filter options on the filters map.
+	if t.opts.Filter.PidNS != 0 {
+		err = t.objs.FiltersMap.Update(uint32(0), t.opts.Filter.PidNS, ebpf.UpdateAny)
 		if err != nil {
-			startErr = xerrors.Errorf("remove memlock: %w", err)
-			return
+			return xerrors.Errorf("apply PID NS filter to eBPF map: %w", err)
 		}
-
-		// Attach the eBPF program to the `sys_enter_execve` tracepoint, which
-		// is triggered at the beginning of each `execve()` syscall.
-		t.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", t.objs.enterExecveProg())
-		if err != nil {
-			startErr = xerrors.Errorf("open tracepoint: %w", err)
-			return
-		}
-
-		// Create the reader for the event ringbuf.
-		t.rb, err = ringbuf.NewReader(t.objs.eventsMap())
-		if err != nil {
-			startErr = xerrors.Errorf("open ringbuf reader: %w", err)
-			return
-		}
-
-		ok = true
-	})
-
-	if !didStart {
-		return xerrors.New("tracer has already been started")
 	}
-	return startErr
+
+	// Attach the eBPF program to the `sys_enter_execve` tracepoint, which
+	// is triggered at the beginning of each `execve()` syscall.
+	t.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", t.objs.EnterExecveProg)
+	if err != nil {
+		return xerrors.Errorf("open tracepoint: %w", err)
+	}
+
+	// Create the reader for the event ringbuf.
+	t.rb, err = ringbuf.NewReader(t.objs.EventsMap)
+	if err != nil {
+		return xerrors.Errorf("open ringbuf reader: %w", err)
+	}
+
+	ok = true
+	return nil
 }
 
 // Read reads an event from the eBPF program via the ringbuf, parses it and
@@ -194,24 +208,16 @@ func (t *tracer) Read() (*Event, error) {
 	return ev, nil
 }
 
-func (t *tracer) isClosed() bool {
-	select {
-	case <-t.closed:
-		return true
-	default:
-	}
-
-	return false
-}
-
 // Close gracefully closes and frees all resources associated with the eBPF
 // tracepoints, maps and other resources. Any blocked `Read()` operations will
 // return an error that wraps `io.EOF`.
 func (t *tracer) Close() error {
 	t.closeLock.Lock()
 	defer t.closeLock.Unlock()
-	if t.isClosed() {
+	select {
+	case <-t.closed:
 		return errTracerClosed
+	default:
 	}
 	close(t.closed)
 	runtime.SetFinalizer(t, nil)
@@ -230,8 +236,12 @@ func (t *tracer) Close() error {
 			merr = multierror.Append(merr, xerrors.Errorf("close tracepoint: %w", err))
 		}
 	}
-
-	// It's up to the caller to close t.objs.
+	if t.objs != nil {
+		err := t.objs.Close()
+		if err != nil {
+			merr = multierror.Append(merr, xerrors.Errorf("close eBPF objects: %w", err))
+		}
+	}
 
 	return merr
 }

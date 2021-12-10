@@ -2,13 +2,33 @@ package exectrace
 
 import "io"
 
+// Filter contains optional runtime filters. All provided filters are processed
+// in the kernel for high performance.
+type Filter struct {
+	// PidNS filters all processes that are in the given PID namespace or in the
+	// child namespace tree of this given namespace. This is very useful for
+	// Docker containers, as you can read all processes in a container (or in
+	// child containers).
+	//
+	// You can read the PID namespace ID for a given process by running
+	// `readlink /proc/x/ns/pid`.
+	PidNS uint32
+}
+
+// TracerOpts contains all of the configuration options for the tracer. All are
+// optional.
+type TracerOpts struct {
+	// Optional runtime filters. All provided filters are processed in the
+	// kernel for high performance.
+	Filter Filter
+}
+
 // Tracer allows consumers to read exec events from the kernel via an eBPF
 // program. `execve()` syscalls are traced in the kernel, and details about the
 // event are sent back to this Go interface.
 type Tracer interface {
 	io.Closer
 
-	Start() error
 	Read() (*Event, error)
 }
 
@@ -29,6 +49,7 @@ type Event struct {
 	UID uint32 `json:"uid"`
 	GID uint32 `json:"gid"`
 
-	// Comm is the "name" of the parent executable minus the path.
+	// Comm is the "name" of the parent process, usually the filename of the
+	// executable (but not always).
 	Comm string `json:"comm"`
 }

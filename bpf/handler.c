@@ -5,10 +5,6 @@
 // use many BPF helpers (including `bpf_probe_read_*`).
 u8 __license[] SEC("license") = "Dual MIT/GPL";
 
-//{{if .Filter.PidNS}}
-#define PIDNS_FILTER {{.Filter.PidNS}}
-//{{end}}
-
 // These constants must be kept in sync with Go.
 #define ARGLEN  32   // maximum amount of args in argv we'll copy
 #define ARGSIZE 1024 // maximum byte length of each arg in argv we'll copy
@@ -50,30 +46,39 @@ struct {
 	__uint(max_entries, 1 << 24);
 } events SEC(".maps");
 
+// The map we'll use to retrieve the configuration about the given filters.
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(key_size, sizeof(u32));
+	__uint(value_size, sizeof(u32));
+	__uint(max_entries, 1);
+} filters SEC(".maps");
+
+// Indexes in the `filters` map for each configuration option.
+static u32 filter_pidns_idx SEC(".rodata") = 0;
+
 // Zero values of any char[ARGSIZE] or char[ARGLEN][ARGSIZE] arrays.
 static char zero[ARGSIZE] SEC(".rodata") = {0};
 static char zero_argv[ARGLEN][ARGSIZE] SEC(".rodata") = {0};
 
-// Tracepoint at the top of execve() syscall.
-SEC("tracepoint/syscalls/sys_enter_execve")
-int enter_execve(struct exec_info *ctx) {
-	s64 ret;
-
-#ifdef PIDNS_FILTER
+// filter_pidns checks if the current task is in a PID namespace equal to or
+// under the given target_pidns. Returns a 0 if successful, or a negative error
+// on failure.
+s32 filter_pidns(u32 target_pidns) {
 	struct task_struct *task = (void *)bpf_get_current_task();
 
 	struct nsproxy *ns;
-	ret = bpf_probe_read_kernel(&ns, sizeof(ns), &task->nsproxy);
+	s64 ret = bpf_probe_read_kernel(&ns, sizeof(ns), &task->nsproxy);
 	if (ret) {
 		bpf_printk("could not read current task nsproxy: %d", ret);
-		return 1;
+		return ret;
 	}
 
 	struct pid_namespace *pidns;
 	ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &ns->pid_ns_for_children);
 	if (ret) {
 		bpf_printk("could not read current task pidns: %d", ret);
-		return 1;
+		return ret;
 	}
 
 	// Iterate up the PID NS tree until we either find the net namespace we're
@@ -86,30 +91,38 @@ int enter_execve(struct exec_info *ctx) {
 			ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &pidns->parent);
 			if (ret) {
 				bpf_printk("could not read parent pidns on iteration %d: %d", i, ret);
-				return 1;
+				return ret;
 			}
 		}
 		if (!pidns) {
 			// No more PID namespaces.
-			return 1;
+			return -1;
 		}
 
 		ret = bpf_probe_read_kernel(&nsc, sizeof(nsc), &pidns->ns);
 		if (ret) {
 			bpf_printk("could not read pidns common on iteration %d: %d", i, ret);
-			return 1;
+			return ret;
 		}
 
-		if (nsc.inum == PIDNS_FILTER) {
-			break;
-		}
-		if (i == 31) {
-			// Iterated through all 32 parent PID namespaces and couldn't find
-			// what we were looking for.
-			return 1;
+		if (nsc.inum == target_pidns) {
+			// One of the parent PID namespaces was the target PID namespace.
+			return 0;
 		}
 	}
-#endif /* PIDNS_FILTER */
+
+	// Iterated through all 32 parent PID namespaces and couldn't find what we
+	// were looking for.
+	return -1;
+}
+
+// Tracepoint at the top of execve() syscall.
+SEC("tracepoint/syscalls/sys_enter_execve")
+s32 enter_execve(struct exec_info *ctx) {
+	u32 *target_pidns = bpf_map_lookup_elem(&filters, &filter_pidns_idx);
+	if (target_pidns && *target_pidns && filter_pidns(*target_pidns)) {
+		return 1;
+	}
 
 	// Reserve memory for our event on the `events` ring buffer defined above.
 	struct event_t *event;
@@ -121,20 +134,20 @@ int enter_execve(struct exec_info *ctx) {
 
 	// Zero out the filename, argv and comm arrays on the event for safety. If
 	// we don't do this, we risk sending random kernel memory back to userspace.
-	ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
-	if (ret != 0) {
+	s64 ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
+	if (ret) {
 		bpf_printk("zero out filename: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 	ret = bpf_probe_read_kernel(&event->argv, sizeof(zero_argv), &zero_argv);
-	if (ret != 0) {
+	if (ret) {
 		bpf_printk("zero out argv: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 	ret = bpf_probe_read_kernel(&event->comm, sizeof(zero), &zero);
-	if (ret != 0) {
+	if (ret) {
 		bpf_printk("zero out comm: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
@@ -147,7 +160,7 @@ int enter_execve(struct exec_info *ctx) {
 	event->gid = uidgid << 32; // gid is the last 32 bits
 	event->pid = pidtgid;      // pid is the first 32 bits
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
-	if (ret != 0) {
+	if (ret) {
 		bpf_printk("could not get current comm: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
@@ -173,7 +186,7 @@ int enter_execve(struct exec_info *ctx) {
 		// event->argv[i] prevents memory corruption.
 		const u8 *argp = NULL;
 		ret = bpf_probe_read_user(&argp, sizeof(argp), &ctx->argv[i]);
-		if (ret != 0 || !argp) {
+		if (ret || !argp) {
 			goto out;
 		}
 
