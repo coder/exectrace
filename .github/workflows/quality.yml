@@ -1,4 +1,4 @@
-name: coder
+name: quality
 
 on:
   push:
@@ -28,7 +28,7 @@ permissions:
 jobs:
   fmt:
     name: fmt
-    runs-on: ubuntu
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
 
   lint-go:
     name: lint/go
-    runs-on: ubuntu
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -66,7 +66,7 @@ jobs:
 
   lint-c:
     name: lint/c
-    runs-on: ubuntu
+    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2
