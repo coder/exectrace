@@ -1,5 +1,6 @@
 #include "vmlinux.h"
 #include "bpf_helpers.h"
+#include "bpf_core_read.h"
 
 // This license needs to be GPL-compatible because the BTF verifier won't let us
 // use many BPF helpers (including `bpf_probe_read_*`).
@@ -68,14 +69,14 @@ s32 filter_pidns(u32 target_pidns) {
 	struct task_struct *task = (void *)bpf_get_current_task();
 
 	struct nsproxy *ns;
-	s64 ret = bpf_probe_read_kernel(&ns, sizeof(ns), &task->nsproxy);
+	s64 ret = bpf_core_read(&ns, sizeof(ns), &task->nsproxy);
 	if (ret) {
 		bpf_printk("could not read current task nsproxy: %d", ret);
 		return ret;
 	}
 
 	struct pid_namespace *pidns;
-	ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &ns->pid_ns_for_children);
+	ret = bpf_core_read(&pidns, sizeof(pidns), &ns->pid_ns_for_children);
 	if (ret) {
 		bpf_printk("could not read current task pidns: %d", ret);
 		return ret;
@@ -88,7 +89,7 @@ s32 filter_pidns(u32 target_pidns) {
 	#pragma unroll
 	for (s32 i = 0; i < 32; i++) {
 		if (i != 0) {
-			ret = bpf_probe_read_kernel(&pidns, sizeof(pidns), &pidns->parent);
+			ret = bpf_core_read(&pidns, sizeof(pidns), &pidns->parent);
 			if (ret) {
 				bpf_printk("could not read parent pidns on iteration %d: %d", i, ret);
 				return ret;
@@ -99,7 +100,7 @@ s32 filter_pidns(u32 target_pidns) {
 			return -1;
 		}
 
-		ret = bpf_probe_read_kernel(&nsc, sizeof(nsc), &pidns->ns);
+		ret = bpf_core_read(&nsc, sizeof(nsc), &pidns->ns);
 		if (ret) {
 			bpf_printk("could not read pidns common on iteration %d: %d", i, ret);
 			return ret;

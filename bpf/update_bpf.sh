@@ -11,6 +11,7 @@ LIBBPF_VERSION="${LIBBPF_VERSION:-0.4.0}"
 # The headers we want to download from the repo. These files are found in the
 # src/ directory in the repo.
 header_files=(
+    "bpf_core_read.h"
     "bpf_helper_defs.h"
     "bpf_helpers.h"
 )
