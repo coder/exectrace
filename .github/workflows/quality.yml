@@ -108,7 +108,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install shellcheck
-        run: DEBIAN_FRONTEND=noninteractive apt install -y shellcheck
+        run: DEBIAN_FRONTEND=noninteractive sudo apt install -y shellcheck
 
       - name: Run make lint/shellcheck
         run: make lint/shellcheck
