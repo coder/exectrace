@@ -38,7 +38,7 @@ fmt/prettier:
 	prettier -w .
 
 .PHONY: lint
-lint: lint/go lint/c
+lint: lint/go lint/c lint/shellcheck
 
 .PHONY: lint/go
 lint/go: lint/go/linux lint/go/other
@@ -58,3 +58,7 @@ lint/c: ci/.clang-image
 		-checks=-*,cert-*,linuxkernel-*,clang-analyzer-*,llvm-*,performance-*,portability-*,readability-* \
 		-warnings-as-errors=* \
 		./handler.c
+
+.PHONY: lint/shellcheck
+lint/shellcheck:
+	./ci/scripts/shellcheck.sh

@@ -11,8 +11,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Only use the "-t" flag if we're in a TTY. This is useful for development as
+# clang outputs colors in a terminal.
+terminal_flags="-i"
+if [ -t 0 ]; then
+    terminal_flags="-it"
+fi
+
 docker run \
-    -it \
+    "$terminal_flags" \
     --rm \
     --hostname exectrace \
     --name "exectrace_build_$RANDOM" \

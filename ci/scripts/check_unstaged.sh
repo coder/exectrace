@@ -6,6 +6,7 @@
 
 set -euo pipefail
 cd "$(dirname "$0")"
+cd "$(git rev-parse --show-toplevel)"
 
 FILES="$(git ls-files --other --modified --exclude-standard)"
 if [[ "$FILES" != "" ]]; then

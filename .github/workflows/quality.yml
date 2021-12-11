@@ -99,3 +99,16 @@ jobs:
 
       - name: Run make lint/c
         run: make lint/c
+
+  lint-shellcheck:
+    name: lint/shellcheck
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install shellcheck
+        run: DEBIAN_FRONTEND=noninteractive apt install -y shellcheck
+
+      - name: Run make lint/shellcheck
+        run: make lint/shellcheck

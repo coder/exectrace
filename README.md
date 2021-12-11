@@ -50,6 +50,13 @@ compiled and included in the repo. If you make changes to files under the `bpf`
 directory, you should run `make` and include the `.o` files in that directory in
 your commit if they changed. CI will ensure that this is done correctly.
 
+You will probably need the following tools:
+
+- Docker (clang is run within a Docker container for reproducibility)
+- `golangci-lint`
+- `prettier`
+- `shellcheck`
+
 ## Status: In Development
 
 The library is currently under heavy development as we develop it out to suit

@@ -27,7 +27,7 @@ permissions:
 
 jobs:
   handler-elf:
-    name: gen/handler-elf
+    name: handler-elf
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
