@@ -1,12 +1,16 @@
 name: Install Clang
-run: |
-  echo <<EOF > /etc/apt/sources.list.d/clang-13.list
-  deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
-  deb-src http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
-  EOF
+description: Installs clang-13 and tools.
+runs:
+  using: composite
+  steps:
+    - run: |
+        echo <<EOF > /etc/apt/sources.list.d/clang-13.list
+        deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
+        deb-src http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
+        EOF
 
-  apt update
-  DEBIAN_FRONTEND=noninteractive apt install -y \
-    clang-13 \
-    clang-tools-13 \
-    clang-tidy-13
+        apt update
+        DEBIAN_FRONTEND=noninteractive apt install -y \
+          clang-13 \
+          clang-tools-13 \
+          clang-tidy-13
