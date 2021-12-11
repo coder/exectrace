@@ -22,3 +22,6 @@
 
 # Editor folders
 .vscode
+
+# Make outputs
+.clang-image

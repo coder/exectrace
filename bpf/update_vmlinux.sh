@@ -6,8 +6,8 @@
 #
 # Depends on bpftool compiled against the current kernel.
 
-cd "$(dirname "$0")"
 set -euo pipefail
+cd "$(dirname "$0")"
 
 vmlinux="./vmlinux.h"
 

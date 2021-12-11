@@ -2,8 +2,8 @@
 
 # This file updates the libbpf header files in this directory.
 
-cd "$(dirname "$0")"
 set -euo pipefail
+cd "$(dirname "$0")"
 
 # Version of libbpf to fetch headers from.
 LIBBPF_VERSION="${LIBBPF_VERSION:-0.4.0}"
