@@ -3,7 +3,8 @@ description: Installs clang-13 and tools.
 runs:
   using: composite
   steps:
-    - run: |
+    - shell: bash
+      run: |
         echo <<EOF > /etc/apt/sources.list.d/clang-13.list
         deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
         deb-src http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
