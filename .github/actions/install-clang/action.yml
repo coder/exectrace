@@ -5,13 +5,13 @@ runs:
   steps:
     - shell: bash
       run: |
-        echo <<EOF > /etc/apt/sources.list.d/clang-13.list
-        deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
-        deb-src http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main
-        EOF
+        echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main" \
+          | sudo tee /etc/apt/sources.list.d/clang-13.list
+        echo "deb-src http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-13 main" \
+          | sudo tee -a /etc/apt/sources.list.d/clang-13.list
 
-        apt update
-        DEBIAN_FRONTEND=noninteractive apt install -y \
+        sudo apt update
+        DEBIAN_FRONTEND=noninteractive sudo apt install -y \
           clang-13 \
           clang-tools-13 \
           clang-tidy-13
