@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	errObjectsClosed   = xerrors.New("objects are closed")
-	remvoveMemlockOnce sync.Once
+	errObjectsClosed  = xerrors.New("objects are closed")
+	removeMemlockOnce sync.Once
 
 	// collectionOpts used for loading the BPF objects.
 	collectionOpts = &ebpf.CollectionOptions{
@@ -34,7 +34,7 @@ func loadBPFObjects() (*bpfObjects, error) {
 	// Allow the current process to lock memory for eBPF resources. This does
 	// nothing on 5.11+ kernels which don't need this.
 	var err error
-	remvoveMemlockOnce.Do(func() {
+	removeMemlockOnce.Do(func() {
 		err = rlimit.RemoveMemlock()
 	})
 	if err != nil {
