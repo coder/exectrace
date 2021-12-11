@@ -133,8 +133,8 @@ func (t *tracer) start() error {
 	}
 
 	// Set filter options on the filters map.
-	if t.opts.FilterPidNS != 0 {
-		err = t.objs.FiltersMap.Update(uint32(0), t.opts.FilterPidNS, ebpf.UpdateAny)
+	if t.opts.PidNS != 0 {
+		err = t.objs.FiltersMap.Update(uint32(0), t.opts.PidNS, ebpf.UpdateAny)
 		if err != nil {
 			return xerrors.Errorf("apply PID NS filter to eBPF map: %w", err)
 		}

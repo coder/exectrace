@@ -5,16 +5,16 @@ import "io"
 // TracerOpts contains all of the configuration options for the tracer. All are
 // optional.
 type TracerOpts struct {
-	// FilterPidNS filters all processes that are in the given PID namespace or
-	// in the child namespace tree of this given namespace. This is very useful
-	// for Docker containers, as you can read all processes in a container (or
-	// in child containers).
+	// PidNS filters all processes that are in the given PID namespace or in the
+	// child namespace tree of this given namespace. This is very useful for
+	// Docker containers, as you can read all processes in a container (or in
+	// child containers).
 	//
 	// You can read the PID namespace ID for a given process by running
 	// `readlink /proc/x/ns/pid`.
 	//
 	// This filter runs in the kernel for high performance.
-	FilterPidNS uint32
+	PidNS uint32
 }
 
 // Tracer allows consumers to read exec events from the kernel via an eBPF
