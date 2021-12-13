@@ -1,11 +1,10 @@
-# exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/execsnoop.svg)](https://pkg.go.dev/cdr.dev/execsnoop)
+# exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/exectrace.svg)](https://pkg.go.dev/cdr.dev/exectrace)
 
 Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a Go
 library.
 
-exectrace compiles an [eBPF program](./bpf/handler.c) with the specified `clang`
-compiler on demand (which is very quick), then loads the program into the kernel
-to receive details about the `exec` family of syscalls.
+exectrace loads a precompiled [eBPF program](./bpf/handler.c) into the running
+kernel to receive details about the `exec` family of syscalls.
 
 ## Installation
 
@@ -18,14 +17,11 @@ $ go get -u cdr.dev/exectrace
 
 ## Quick Start
 
-Things you'll need to get started:
+You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF` to run eBPF programs on
+your system.
 
-- Root access, `CAP_SYS_ADMIN` or `CAP_BPF`.
-  - tip: you can use `go run -exec sudo ./cmd/program` to compile a program and
-    start it with `sudo`
-- A `clang` compiler. The eBPF program is compiled on demand.
-  - You'll also need to know the executable name of your compiler (e.g.
-    `clang-13`) or the absolute path to it.
+> tip: you can use `go run -exec sudo ./cmd/program` to compile a program and
+> start it with `sudo`
 
 ```
 $ go install -u cdr.dev/exectrace/cmd/exectrace
