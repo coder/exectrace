@@ -16,5 +16,12 @@
 
 # Object files
 *.o
+!bpf/handler-*.o
 *.obj
 *.elf
+
+# Editor folders
+.vscode
+
+# Make outputs
+.clang-image

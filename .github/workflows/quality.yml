@@ -1,0 +1,114 @@
+name: quality
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  actions: none
+  checks: none
+  contents: read
+  deployments: none
+  issues: none
+  packages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  fmt-go:
+    name: fmt/go
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      - name: Run make fmt/go
+        run: make fmt/go
+
+      - name: Check for unstaged files
+        run: ./ci/scripts/check_unstaged.sh
+
+  fmt-prettier:
+    name: fmt/prettier
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "14"
+
+      - name: Install prettier
+        run: npm install --global prettier
+
+      - name: Run make fmt/prettier
+        run: make fmt/prettier
+
+      - name: Check for unstaged files
+        run: ./ci/scripts/check_unstaged.sh
+
+  lint-go:
+    name: lint/go
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b $(go env GOPATH)/bin v1.43.0
+
+      # Linting needs to be done on each build variation of GOOS.
+      - name: Run make lint/go/linux
+        run: make lint/go/linux
+
+      # The windows and darwin builds include the same files.
+      - name: Run make lint/go/other
+        run: make lint/go/other
+
+  lint-c:
+    name: lint/c
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run make lint/c
+        run: make lint/c
+
+  lint-shellcheck:
+    name: lint/shellcheck
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install shellcheck
+        run: sudo apt install -y shellcheck
+
+      - name: Run make lint/shellcheck
+        run: make lint/shellcheck

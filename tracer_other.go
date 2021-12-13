@@ -3,7 +3,13 @@
 
 package exectrace
 
-// NewTracer creates a Tracer using the given BPFObjects.
-func NewTracer(_ BPFObjects) (Tracer, error) {
-	return nil, errUnsupportedOS
+import (
+	"runtime"
+
+	"golang.org/x/xerrors"
+)
+
+// New is not supported on OSes other than Linux.
+func New(_ *TracerOpts) (Tracer, error) {
+	return nil, xerrors.Errorf(`%q is an unsupported OS, only "linux" is supported`, runtime.GOOS)
 }
