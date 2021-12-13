@@ -25,8 +25,8 @@ import (
 
 // These constants are defined in `bpf/handler.c` and must be kept in sync.
 const (
-	ARGLEN  = 32
-	ARGSIZE = 1024
+	arglen  = 32
+	argsize = 1024
 )
 
 var errTracerClosed = xerrors.New("tracer is closed")
@@ -36,15 +36,15 @@ var errTracerClosed = xerrors.New("tracer is closed")
 // `event_t` in `bpf/handler.c`.
 type event struct {
 	// Details about the process being launched.
-	Filename [ARGSIZE]byte
-	Argv     [ARGLEN][ARGSIZE]byte
+	Filename [argsize]byte
+	Argv     [arglen][argsize]byte
 	Argc     uint32
 	UID      uint32
 	GID      uint32
 	PID      uint32
 
 	// Name of the calling process.
-	Comm [ARGSIZE]byte
+	Comm [argsize]byte
 }
 
 type tracer struct {
@@ -185,7 +185,7 @@ func (t *tracer) Read() (*Event, error) {
 	ev := &Event{
 		Filename:  unix.ByteSliceToString(rawEvent.Filename[:]),
 		Argv:      []string{}, // populated below
-		Truncated: rawEvent.Argc == ARGLEN+1,
+		Truncated: rawEvent.Argc == arglen+1,
 		PID:       rawEvent.PID,
 		UID:       rawEvent.UID,
 		GID:       rawEvent.GID,
@@ -195,8 +195,8 @@ func (t *tracer) Read() (*Event, error) {
 	// Copy only the args we're allowed to read from the array. If we read more
 	// than rawEvent.Argc, we could be copying non-zeroed memory.
 	argc := int(rawEvent.Argc)
-	if argc > ARGLEN {
-		argc = ARGLEN
+	if argc > arglen {
+		argc = arglen
 	}
 	for i := 0; i < argc; i++ {
 		str := unix.ByteSliceToString(rawEvent.Argv[i][:])
