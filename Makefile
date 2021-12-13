@@ -35,6 +35,7 @@ fmt/go:
 
 .PHONY: fmt/prettier
 fmt/prettier:
+	# Config file: .prettierrc
 	prettier -w .
 
 .PHONY: lint
@@ -45,19 +46,19 @@ lint/go: lint/go/linux lint/go/other
 
 .PHONY: lint/go/linux
 lint/go/linux:
+	# Config file: .golangci.yml
 	golangci-lint run ./...
 
 .PHONY: lint/go/other
 lint/go/other:
-    # The windows and darwin builds include the same files.
+	# The windows and darwin builds include the same files.
+	# Config file: .golangci.yml
 	GOOS=windows golangci-lint run ./...
 
 .PHONY: lint/c
 lint/c: ci/.clang-image
-	./ci/scripts/clang.sh clang-tidy-13 \
-		-checks=-*,cert-*,linuxkernel-*,clang-analyzer-*,llvm-*,performance-*,portability-*,readability-* \
-		-warnings-as-errors=* \
-		./handler.c
+	# Config file: .clang-tidy
+	./ci/scripts/clang.sh clang-tidy-13 --config-file ../.clang-tidy ./handler.c
 
 .PHONY: lint/shellcheck
 lint/shellcheck:

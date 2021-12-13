@@ -25,6 +25,7 @@ docker run \
     --name "exectrace_build_$RANDOM" \
     --user "$(id -u):$(id -g)" \
     --volume "$(git rev-parse --show-toplevel):/repo" \
+    --net none \
     --workdir "/repo/bpf" \
     exectrace-clang-13 \
     "$@"
