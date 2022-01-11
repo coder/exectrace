@@ -28,7 +28,7 @@ $ go install -u cdr.dev/exectrace/cmd/exectrace
 $ exectrace --help
 ...
 
-$ sudo exectrace --compiler clang-13
+$ sudo exectrace
 2021/12/01 16:42:02 Waiting for events..
 [1188921, comm="node"] /bin/sh -c 'which ps'
 [1188922, comm="sh"] which ps
