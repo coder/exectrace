@@ -161,7 +161,7 @@ s32 enter_execve(struct exec_info *ctx) {
 	u64 uidgid = bpf_get_current_uid_gid();
 	u64 pidtgid = bpf_get_current_pid_tgid();
 	event->uid = uidgid;       // uid is the first 32 bits
-	event->gid = uidgid << 32; // gid is the last 32 bits NOLINT(readability-magic-numbers)
+	event->gid = uidgid >> 32; // gid is the last 32 bits NOLINT(readability-magic-numbers)
 	event->pid = pidtgid;      // pid is the first 32 bits
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret) {

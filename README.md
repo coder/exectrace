@@ -1,4 +1,4 @@
-# exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/exectrace.svg)](https://pkg.go.dev/cdr.dev/exectrace)
+# exectrace [![Go Reference](https://pkg.go.dev/badge/github.com/coder/exectrace.svg)](https://pkg.go.dev/github.com/coder/exectrace)
 
 Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux packaged as a Go
 library.
@@ -14,7 +14,7 @@ exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to the use of
 ## Installation
 
 ```console
-$ go get -u cdr.dev/exectrace
+$ go get -u github.com/coder/exectrace
 ```
 
 ## Quickstart
@@ -26,19 +26,63 @@ your system.
 > start it with `sudo`
 
 ```console
-$ go install -u cdr.dev/exectrace/cmd/exectrace
+$ go install -u github.com/coder/exectrace/cmd/exectrace
 $ exectrace --help
 ...
 
 $ sudo exectrace
 2021/12/01 16:42:02 Waiting for events..
-[1188921, comm="node"] /bin/sh -c 'which ps'
-[1188922, comm="sh"] which ps
+[1188921, comm="node", uid=1002, gid=1003] /bin/sh -c 'which ps'
+[1188922, comm="sh", uid=1002, gid=1003] which ps
 ```
 
-## Usage example
+## Usage
 
-For a full usage example, see [exectrace](./cmd/exectrace/main.go), which is a
+exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then
+you can start `tracer.Read()`ing events from the returned `tracer`.
+
+It is important that you close the tracer to avoid leaking kernel resources,
+so we recommend implemeneting a simple signal handler like the one in this
+example:
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/coder/exectrace"
+)
+
+func main() {
+	tracer, err := exectrace.New(nil)
+	if err != nil {
+		panic(err)
+	}
+	defer tracer.Close()
+
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		<-sigs
+		tracer.Close()
+	}()
+
+	for {
+		event, err := tracer.Read()
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("%+v\n", event)
+	}
+}
+```
+
+> For a full usage example, see [exectrace](./cmd/exectrace/main.go), which is a
 comprehensive program that uses this library.
 
 ## Development
@@ -76,4 +120,4 @@ implement filtering yourself).
 
 ---
 
-Dual licensed under the MIT and GPL-2.0 licenses. See [LICENSE](LICENSE).
+Dual licensed under the MIT and GPL 2.0 licenses. See [LICENSE](LICENSE).
