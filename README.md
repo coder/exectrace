@@ -1,4 +1,4 @@
-# exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/exectrace.svg)](https://pkg.go.dev/cdr.dev/exectrace)
+# exectrace [![Go Reference](https://pkg.go.dev/badge/github.com/coder/exectrace.svg)](https://pkg.go.dev/github.com/coder/exectrace)
 
 Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a Go
 library.
@@ -12,7 +12,7 @@ exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to use of
 `BPF_MAP_TYPE_RINGBUF`).
 
 ```
-$ go get -u cdr.dev/exectrace
+$ go get -u github.com/coder/exectrace
 ```
 
 ## Quick Start
@@ -24,20 +24,64 @@ your system.
 > start it with `sudo`
 
 ```
-$ go install -u cdr.dev/exectrace/cmd/exectrace
+$ go install -u github.com/coder/exectrace/cmd/exectrace
 $ exectrace --help
 ...
 
 $ sudo exectrace
 2021/12/01 16:42:02 Waiting for events..
-[1188921, comm="node"] /bin/sh -c 'which ps'
-[1188922, comm="sh"] which ps
+[1188921, comm="node", uid=1002, gid=1003] /bin/sh -c 'which ps'
+[1188922, comm="sh", uid=1002, gid=1003] which ps
 ```
 
 ## Usage
 
+exectrace exposes a minimal API surface. Just call `exectrace.New(nil)` and then
+you can immediately start `tracer.Read()`ing events from the returned `tracer`.
+
+It is important that the tracer gets closed to avoid leaking kernel resources,
+so implemeneting a simple signal handler like the one in the example below is
+recommended.
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/coder/exectrace"
+)
+
+func main() {
+	tracer, err := exectrace.New(nil)
+	if err != nil {
+		panic(err)
+	}
+	defer tracer.Close()
+
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		<-sigs
+		tracer.Close()
+	}()
+
+	for {
+		event, err := tracer.Read()
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("%+v\n", event)
+	}
+}
+```
+
 You can look at the example program [exectrace](./cmd/exectrace/main.go) for a
-comprehensive program using this library.
+fully featured program using this library.
 
 ## Development
 
@@ -72,4 +116,4 @@ implementing filtering yourself.
 
 ---
 
-Dual licensed under the MIT and GPL-2.0 licenses. See [LICENSE](LICENSE).
+Dual licensed under the MIT and GPL 2.0 licenses. See [LICENSE](LICENSE).
