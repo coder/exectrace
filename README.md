@@ -1,29 +1,31 @@
 # exectrace [![Go Reference](https://pkg.go.dev/badge/cdr.dev/exectrace.svg)](https://pkg.go.dev/cdr.dev/exectrace)
 
-Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a Go
+Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux packaged as a Go
 library.
 
-exectrace loads a precompiled [eBPF program](./bpf/handler.c) into the running
+exectrace loads a pre-compiled [eBPF program](./bpf/handler.c) into the running
 kernel to receive details about the `exec` family of syscalls.
+
+## Requirements
+
+exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to the use of
+`BPF_MAP_TYPE_RINGBUF`).
 
 ## Installation
 
-exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to use of
-`BPF_MAP_TYPE_RINGBUF`).
-
-```
+```console
 $ go get -u cdr.dev/exectrace
 ```
 
-## Quick Start
+## Quickstart
 
-You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF` to run eBPF programs on
+You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF`, to run eBPF programs on
 your system.
 
-> tip: you can use `go run -exec sudo ./cmd/program` to compile a program and
+> Use `go run -exec sudo ./cmd/program` to compile a program and
 > start it with `sudo`
 
-```
+```console
 $ go install -u cdr.dev/exectrace/cmd/exectrace
 $ exectrace --help
 ...
@@ -34,35 +36,37 @@ $ sudo exectrace
 [1188922, comm="sh"] which ps
 ```
 
-## Usage
+## Usage example
 
-You can look at the example program [exectrace](./cmd/exectrace/main.go) for a
-comprehensive program using this library.
+For a full usage example, see [exectrace](./cmd/exectrace/main.go), which is a
+comprehensive program that uses this library.
 
 ## Development
 
-Since the eBPF program is packaged as a Go library, the program needs to be
-compiled and included in the repo. If you make changes to files under the `bpf`
-directory, you should run `make` and include the `.o` files in that directory in
-your commit if they changed. CI will ensure that this is done correctly.
+You will need the following:
 
-You will probably need the following tools:
-
-- Docker (clang is run within a Docker container for reproducibility)
+- Docker (run clang within a Docker container for reproducibility)
 - `golangci-lint`
 - `prettier`
 - `shellcheck`
 
-## Status: In Development
+Since the eBPF program is packaged as a Go library, you need to compile the
+program and include it in the repo.
 
-The library is currently under heavy development as we develop it out to suit
-the needs of Coder's enterprise [product](https://coder.com).
+If you change the files in the `bpf` directory, run `make` and ensure that you
+include the `.o` files you changed in your commit (CI will verify that you've
+done this correctly).
 
-We plan on changing the API to add more features and fields that can be read
-from, and potentially adding easier methods for filtering events rather than
-implementing filtering yourself.
+## Status: in development
 
-## See Also
+The library is currently under heavy development as we modify it to suit the
+needs of Coder's [enterprise product](https://coder.com).
+
+We plan on adding more features and fields that can be read from the API, as
+well as easier-to-use methods for filtering events (currently, you must
+implement filtering yourself).
+
+## See also
 
 - [`canonical/etrace`](https://github.com/canonical/etrace) - Go binary that
   uses ptrace and tracks the processes that a command launches for debugging and
