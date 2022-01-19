@@ -82,8 +82,8 @@ func main() {
 }
 ```
 
-> For a full usage example, see [exectrace](./cmd/exectrace/main.go), which is a
-comprehensive program that uses this library.
+> For a full usage example, refer to this [comprehensive program](./cmd/exectrace/main.go)
+> that uses the library.
 
 ## Development
 
