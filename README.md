@@ -39,10 +39,10 @@ $ sudo exectrace
 ## Usage
 
 exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then
-you can start `tracer.Read()`ing events from the returned `tracer`.
+you can start `tracer.Read()`ing events from the returned `Tracer`.
 
 It is important that you close the tracer to avoid leaking kernel resources,
-so we recommend implemeneting a simple signal handler like the one in this
+so we recommend implementing a simple signal handler like the one in this
 example:
 
 ```go
@@ -89,7 +89,7 @@ comprehensive program that uses this library.
 
 You will need the following:
 
-- Docker (run clang within a Docker container for reproducibility)
+- Docker (the Makefile runs clang within a Docker container for reproducibility)
 - `golangci-lint`
 - `prettier`
 - `shellcheck`
@@ -108,7 +108,7 @@ needs of Coder's [enterprise product](https://coder.com).
 
 We plan on adding more features and fields that can be read from the API, as
 well as easier-to-use methods for filtering events (currently, you must
-implement filtering yourself).
+implement additional filtering yourself).
 
 ## See also
 
