@@ -8,7 +8,7 @@ kernel to receive details about the `exec` family of syscalls.
 
 ## Requirements
 
-exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to the use of
+exectrace only supports Go 1.16+ and Linux kernel 5.8+ (due to the use of
 `BPF_MAP_TYPE_RINGBUF`).
 
 ## Installation
