@@ -39,7 +39,7 @@ $ sudo exectrace
 ## Usage
 
 exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then
-you can start `tracer.Read()`ing events from the returned `Tracer`.
+you can start reading events from the returned `Tracer`.
 
 It is important that you close the tracer to avoid leaking kernel resources,
 so we recommend implementing a simple signal handler like the one in this
