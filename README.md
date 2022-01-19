@@ -101,10 +101,10 @@ If you change the files in the `bpf` directory, run `make` and ensure that you
 include the `.o` files you changed in your commit (CI will verify that you've
 done this correctly).
 
-## Status: in development
+## Status: beta
 
-The library is currently under heavy development as we modify it to suit the
-needs of Coder's [enterprise product](https://coder.com).
+This library is ready to use as-is, though it is under active development as we
+modify it to suit the needs of Coder's [enterprise product](https://coder.com).
 
 We plan on adding more features and fields that can be read from the API, as
 well as easier-to-use methods for filtering events (currently, you must
