@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/xerrors"
 
-	"cdr.dev/exectrace"
+	"github.com/coder/exectrace"
 )
 
 func main() {
@@ -92,7 +92,11 @@ func run(pidNS uint32, outputFormat string) error {
 				ellipsis = "..."
 			}
 
-			_, _ = fmt.Printf("[%v, comm=%q] %v%v\n", event.PID, event.Comm, shellquote.Join(event.Argv...), ellipsis)
+			_, _ = fmt.Printf(
+				"[%v, comm=%q, uid=%v, gid=%v] %v%v\n",
+				event.PID, event.Comm, event.UID, event.GID,
+				shellquote.Join(event.Argv...), ellipsis,
+			)
 			continue
 		}
 		err = enc.Encode(event)

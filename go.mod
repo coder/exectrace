@@ -1,4 +1,4 @@
-module cdr.dev/exectrace
+module github.com/coder/exectrace
 
 go 1.16
 

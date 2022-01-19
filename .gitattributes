@@ -1,2 +1,6 @@
-bpf/bpf_helper_defs.h linguist-generated=true
-bpf/bpf_helpers.h linguist-generated=true
+bpf/bpf_core_read.h linguist-vendored
+bpf/bpf_helper_defs.h linguist-vendored
+bpf/bpf_helpers.h linguist-vendored
+bpf/handler-bpfeb.o linguist-generated
+bpf/handler-bpfel.o linguist-generated
+bpf/vmlinux.h linguist-vendored
