@@ -1,29 +1,31 @@
 # exectrace [![Go Reference](https://pkg.go.dev/badge/github.com/coder/exectrace.svg)](https://pkg.go.dev/github.com/coder/exectrace)
 
-Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux, packaged as a Go
+Simple [eBPF](https://ebpf.io/)-based exec snooping on Linux packaged as a Go
 library.
 
-exectrace loads a precompiled [eBPF program](./bpf/handler.c) into the running
+exectrace loads a pre-compiled [eBPF program](./bpf/handler.c) into the running
 kernel to receive details about the `exec` family of syscalls.
+
+## Requirements
+
+exectrace only supports Go 1.16+ and Linux kernel 5.8+ (due to the use of
+`BPF_MAP_TYPE_RINGBUF`).
 
 ## Installation
 
-exectrace only support Go 1.16+ and Linux kernel 5.8+ (due to use of
-`BPF_MAP_TYPE_RINGBUF`).
-
-```
+```console
 $ go get -u github.com/coder/exectrace
 ```
 
-## Quick Start
+## Quickstart
 
-You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF` to run eBPF programs on
+You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF`, to run eBPF programs on
 your system.
 
-> tip: you can use `go run -exec sudo ./cmd/program` to compile a program and
+> Use `go run -exec sudo ./cmd/program` to compile a program and
 > start it with `sudo`
 
-```
+```console
 $ go install -u github.com/coder/exectrace/cmd/exectrace
 $ exectrace --help
 ...
@@ -36,12 +38,12 @@ $ sudo exectrace
 
 ## Usage
 
-exectrace exposes a minimal API surface. Just call `exectrace.New(nil)` and then
-you can immediately start `tracer.Read()`ing events from the returned `tracer`.
+exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then
+you can start `tracer.Read()`ing events from the returned `Tracer`.
 
-It is important that the tracer gets closed to avoid leaking kernel resources,
-so implemeneting a simple signal handler like the one in the example below is
-recommended.
+It is important that you close the tracer to avoid leaking kernel resources,
+so we recommend implementing a simple signal handler like the one in this
+example:
 
 ```go
 package main
@@ -80,33 +82,35 @@ func main() {
 }
 ```
 
-You can look at the example program [exectrace](./cmd/exectrace/main.go) for a
-fully featured program using this library.
+> For a full usage example, refer to this [comprehensive program](./cmd/exectrace/main.go)
+> that uses the library.
 
 ## Development
 
-Since the eBPF program is packaged as a Go library, the program needs to be
-compiled and included in the repo. If you make changes to files under the `bpf`
-directory, you should run `make` and include the `.o` files in that directory in
-your commit if they changed. CI will ensure that this is done correctly.
+You will need the following:
 
-You will probably need the following tools:
-
-- Docker (clang is run within a Docker container for reproducibility)
+- Docker (the Makefile runs clang within a Docker container for reproducibility)
 - `golangci-lint`
 - `prettier`
 - `shellcheck`
 
-## Status: In Development
+Since the eBPF program is packaged as a Go library, you need to compile the
+program and include it in the repo.
 
-The library is currently under heavy development as we develop it out to suit
-the needs of Coder's enterprise [product](https://coder.com).
+If you change the files in the `bpf` directory, run `make` and ensure that you
+include the `.o` files you changed in your commit (CI will verify that you've
+done this correctly).
 
-We plan on changing the API to add more features and fields that can be read
-from, and potentially adding easier methods for filtering events rather than
-implementing filtering yourself.
+## Status: beta
 
-## See Also
+This library is ready to use as-is, though it is under active development as we
+modify it to suit the needs of Coder's [enterprise product](https://coder.com).
+
+We plan on adding more features and fields that can be read from the API, as
+well as easier-to-use methods for filtering events (currently, you must
+implement additional filtering yourself).
+
+## See also
 
 - [`canonical/etrace`](https://github.com/canonical/etrace) - Go binary that
   uses ptrace and tracks the processes that a command launches for debugging and
