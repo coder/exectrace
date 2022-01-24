@@ -18,7 +18,7 @@ cat /proc/config.gz | gunzip | grep CONFIG_DEBUG_INFO_BTF
 ```
 
 ```console
-cat "/boot/config-$(uname -r)" | grep CONFIG_DEBUG_INFO_BTF
+$ cat "/boot/config-$(uname -r)" | grep CONFIG_DEBUG_INFO_BTF
 ```
 
 ## Installation
