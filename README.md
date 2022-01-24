@@ -11,7 +11,7 @@ kernel to receive details about the `exec` family of syscalls.
 exectrace only supports Go 1.16+ and Linux kernel 5.8+ (due to the use of
 `BPF_MAP_TYPE_RINGBUF`). Additionally, the kernel config `CONFIG_DEBUG_INFO_BTF=y` is required.
 
-To validate this config is enabled, run either of the following commands directly on the nodes:
+To validate this config is enabled, run either of the following commands directly on the system:
 
 ```console
 cat /proc/config.gz | gunzip | grep CONFIG_DEBUG_INFO_BTF
