@@ -74,7 +74,7 @@ jobs:
             cloud-image-utils \
             qemu \
             qemu-efi \
-            qemu-system-390x
+            qemu-system-s390x
 
       - name: Run vm_test.sh
         run: "./ci/scripts/vm_test.sh '${{ matrix.architecture }}' '${{ matrix.kernel }}'"
