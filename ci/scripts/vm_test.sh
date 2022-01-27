@@ -155,12 +155,14 @@ validate_checksum "$image_sum_file" "$image_path"
 
 # Copy the image to make a fresh volume. We expand the image to increase from 2G
 # to a usable size.
+echo "+ Copying and resizing root volume"
 cp "$image_path" "$volume_file"
 qemu-img resize "$volume_file" +10G
 
 # Generate an SSH key if one doesn't exist.
 ssh_key_path="$persistent_dir/id_ed25519"
 if [ ! -e "$ssh_key_path" ]; then
+  echo "+ Generating SSH key file"
   ssh-keygen -t ed25519 -f "$ssh_key_path" -C "exectrace+test@coder.com" -q -N ""
 fi
 
@@ -181,8 +183,14 @@ users:
 EOF
 
 # Compile cloud-init config into a seed volume.
-cloudinit_seed_file="$(mktemp --suffix=.exectrace.cloud_init_seed.img)"
-cloud-localds -v --disk-format raw -f vfat "$cloudinit_seed_file" cloud_init.cfg
+echo "+ Creating cloud-init seed file"
+cloudinit_seed_file="$temp_dir/cloud_init_seed.img"
+cloud-localds \
+  -v \
+  --disk-format raw \
+  --filesystem iso9660 \
+  "$cloudinit_seed_file" \
+  cloud_init.cfg
 
 # Prepare arguments for qemu.
 pid_file="./qemu.pid"
@@ -202,6 +210,7 @@ qemu_args=(
   -monitor "unix:$monitor_socket,server,nowait"
 )
 if [[ "$(uname -m)" == "$arch" ]] || [[ "$(uname -m)" == "$vm_arch" ]]; then
+  echo "+ Enabling KVM"
   qemu_args+=(
     --enable-kvm
     -cpu host
@@ -217,6 +226,7 @@ fi
 
 # Arm requires EFI.
 if [[ "$arch" == *arm* ]]; then
+  echo "+ Enabling EFI (due to arm requirement)"
   dd if=/dev/zero of=flash0.img bs=1M count=64
   dd if=/usr/share/qemu-efi/QEMU_EFI.fd of=flash0.img conv=notrunc
   dd if=/dev/zero of=flash1.img bs=1M count=64
@@ -230,8 +240,7 @@ fi
 log_file="$(mktemp --tmpdir tmp.exectrace-qemu.XXXXX.log)"
 echoerr "Starting qemu with log file '$log_file'"
 echoerr "QEMU monitor will be available at '$monitor_socket'"
-#nohup sudo "qemu-system-$vm_arch" "${qemu_args[@]}" &>"$log_file" & disown
-sudo "qemu-system-$vm_arch" "${qemu_args[@]}"
+nohup sudo "qemu-system-$vm_arch" "${qemu_args[@]}" &>"$log_file" & disown
 sleep 5
 
 dump_log() {
@@ -355,7 +364,7 @@ if [[ "\$(uname -r)" != *"$kernel_image_pkg_name"* ]]; then
 fi
 
 # shellcheck disable=SC2088 # intentionally don't want ~ to expand by using "
-"~/$test_binary" -test.v -test.timeout=10m
+~/"$test_binary" -test.v -test.timeout=10m
 EOF
 
 xssh poweroff || true

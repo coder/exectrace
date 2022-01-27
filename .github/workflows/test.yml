@@ -50,9 +50,9 @@ jobs:
     strategy:
       matrix:
         kernel:
-          - "5.8.5"   # a 5.8 kernel, lowest supported minor release
+          - "5.8.5" # a 5.8 kernel, lowest supported minor release
           - "5.11.22" # common kernel on cloud K8s
-          - "5.16.0"  # newish kernel
+          - "5.16.0" # newish kernel
         architecture:
           - amd64 # little endian
           - s390x # big endian
