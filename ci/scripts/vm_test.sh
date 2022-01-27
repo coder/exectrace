@@ -318,6 +318,11 @@ xssh /bin/bash <<EOF
 set -euxo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
+do_reboot() {
+  nohup /bin/sh -c "sleep 5 && reboot" & disown
+  exit 0
+}
+
 echo "+ Install the target kernel and modules"
 apt update
 apt install -y "./$kernel_image_pkg" "./$kernel_module_pkg"
@@ -327,7 +332,7 @@ rm -f "./$kernel_image_pkg" "./$kernel_module_pkg"
 # used for booting.
 if command -v zipl; then
   echo "+ Detected non-grub bootloader, rebooting"
-  reboot
+  do_reboot
   exit 0
 fi
 
@@ -346,7 +351,7 @@ set -e
 grub-reboot "\$menu_entry"
 
 echo "+ Reboot"
-reboot
+do_reboot
 
 EOF
 
