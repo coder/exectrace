@@ -63,3 +63,10 @@ lint/c: ci/.clang-image
 .PHONY: lint/shellcheck
 lint/shellcheck:
 	./ci/scripts/shellcheck.sh
+
+.PHONY: test
+test: test/go
+
+.PHONY: test/go
+test/go:
+	./ci/scripts/test_go.sh

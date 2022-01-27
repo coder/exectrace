@@ -7,4 +7,4 @@ cd "$(dirname "$0")"
 cd "$(git rev-parse --show-toplevel)"
 
 shopt -s globstar nullglob
-shellcheck ./**/*.sh
+shellcheck -e SC1091 ./**/*.sh
