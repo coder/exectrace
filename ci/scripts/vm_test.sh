@@ -253,9 +253,10 @@ dump_log() {
   echoerr "The qemu log file is pritned above"
 }
 
-pid="$(sudo cat "$pid_file")"
+pid="$(sudo cat "$pid_file" || true)"
 if [ "$pid" == "" ]; then
-  fatal "qemu pid file was empty"
+  dump_log "qemu pid file was missing or empty"
+  exit 1
 fi
 
 ensure_qemu_running() {
