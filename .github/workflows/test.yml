@@ -1,0 +1,80 @@
+name: test
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "*"
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  actions: none
+  checks: none
+  contents: read
+  deployments: none
+  issues: none
+  packages: none
+  pull-requests: none
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  test-standard:
+    name: test/standard
+    runs-on: ubuntu-20.04 # amd64, little endian
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      - name: Install gotestsum
+        run: go get gotest.tools/gotestsum
+
+      - name: Run tests
+        run: make test/go
+
+  test-vm:
+    name: test/vm
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        kernel:
+          - "5.15.7"
+          - "5.11.22"
+          - "5.8.18"
+        architecture:
+          - amd64 # little endian
+          - s390x # big endian
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16.12"
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            cloud-image-utils \
+            qemu \
+            qemu-efi \
+            qemu-system-390x
+
+      - name: Run vm_test.sh
+        run: "./ci/scripts/vm_test.sh '${{ matrix.architecture }}' '${{ matrix.kernel }}'"
