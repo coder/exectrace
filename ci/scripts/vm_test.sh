@@ -209,19 +209,21 @@ qemu_args=(
   -pidfile "$pid_file"
   -monitor "unix:$monitor_socket,server,nowait"
 )
-if [[ "$(uname -m)" == "$arch" ]] || [[ "$(uname -m)" == "$vm_arch" ]]; then
+
+kvm_supported=0
+# shellcheck disable=SC2015 # the "|| true" is here to avoid killing the script
+grep -qiP '^flags.*(vmx|svm)' /proc/cpuinfo && kvm_supported=1 || true
+if [[ $kvm_supported == 1 && ("$(uname -m)" == "$arch" || "$(uname -m)" == "$vm_arch") ]]; then
   echo "+ Enabling KVM"
   qemu_args+=(
     --enable-kvm
     -cpu host
   )
-else
-  if [[ "$arch" == *arm* ]]; then
-    qemu_args+=(
-      -cpu cortex-a57
-      -machine virt
-    )
-  fi
+elif [[ "$arch" == *arm* ]]; then
+  qemu_args+=(
+    -cpu cortex-a57
+    -machine virt
+  )
 fi
 
 # Arm requires EFI.
