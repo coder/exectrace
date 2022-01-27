@@ -91,6 +91,7 @@ You will need the following:
 
 - Docker (the Makefile runs clang within a Docker container for reproducibility)
 - `golangci-lint`
+- `gotestsum`
 - `prettier`
 - `shellcheck`
 

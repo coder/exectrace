@@ -3,7 +3,7 @@
 # This file contains bash helper functions intended for use by other script
 # files in this directory.
 
-set -euxo pipefail
+set -euo pipefail
 
 echoerr() {
   echo "$@" >&2
