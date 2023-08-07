@@ -77,7 +77,7 @@ linters-settings:
       - regexpMust
       - regexpPattern
       # - regexpSimplify
-      - ruleguard
+      #- ruleguard
       - singleCaseSwitch
       - sloppyLen
       # - sloppyReassign
