@@ -5,6 +5,10 @@
 # - removed testpackage
 
 linters-settings:
+  exhaustruct:
+    include:
+      # Gradually extend to cover more of the codebase.
+      - 'httpmw\.\w+'
   gocognit:
     min-complexity: 46 # Min code complexity (def 30).
 
@@ -57,7 +61,6 @@ linters-settings:
       # - importShadow
       - indexAlloc
       - initClause
-      - ioutilDeprecated
       - mapKey
       - methodExprCall
       # - nestingReduce
@@ -74,7 +77,7 @@ linters-settings:
       - regexpMust
       - regexpPattern
       # - regexpSimplify
-      # - ruleguard
+      - ruleguard
       - singleCaseSwitch
       - sloppyLen
       # - sloppyReassign
@@ -103,6 +106,10 @@ linters-settings:
       # - whyNoLint
       # - wrapperFunc
       # - yodaStyleExpr
+    #settings:
+    #  ruleguard:
+    #    failOn: all
+    #    rules: "${configDir}/scripts/rules.go"
 
   staticcheck:
     # https://staticcheck.io/docs/options#checks
@@ -115,7 +122,8 @@ linters-settings:
     local-prefixes: coder.com,cdr.dev,go.coder.com,github.com/cdr,github.com/coder
 
   gocyclo:
-    min-complexity: 50
+    # goal: 30
+    min-complexity: 47
 
   importas:
     no-unaliased: true
@@ -193,16 +201,22 @@ issues:
       linters:
         # We use assertions rather than explicitly checking errors in tests
         - errcheck
+        - forcetypeassert
+        - exhaustruct # This is unhelpful in tests.
+    - path: scripts/*
+      linters:
+        - exhaustruct
 
   fix: true
   max-issues-per-linter: 0
   max-same-issues: 0
 
 run:
-  concurrency: 4
   skip-dirs:
     - node_modules
-  timeout: 5m
+  skip-files:
+    - scripts/rules.go
+  timeout: 10m
 
 # Over time, add more and more linters from
 # https://golangci-lint.run/usage/linters/ as the code improves.
@@ -212,11 +226,11 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
-    - deadcode
     - dogsled
     - errcheck
     - errname
     - errorlint
+    - exhaustruct
     - exportloopref
     - forcetypeassert
     - gocritic
@@ -244,9 +258,15 @@ linters:
 
     - staticcheck
     - tenv
-    # - testpackage
+    # In Go, it's possible for a package to test it's internal functionality
+    # without testing any exported functions. This is enabled to promote
+    # decomposing a package before testing it's internals. A function caller
+    # should be able to test most of the functionality from exported functions.
+    #
+    # There are edge-cases to this rule, but they should be carefully considered
+    # to avoid structural inconsistency.
+    #- testpackage
     - tparallel
     - typecheck
     - unconvert
     - unused
-    - varcheck

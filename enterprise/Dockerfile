@@ -1,4 +1,4 @@
-# This is a multui-arch Dockerfile, so it cannot have ANY "RUN" commands as it's
+# This is a multi-arch Dockerfile, so it cannot have ANY "RUN" commands as it's
 # cross-compiled. All binaries are cross-compiled using the host's Go toolchain
 # and then copied into the build context.
 #

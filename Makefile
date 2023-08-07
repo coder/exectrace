@@ -37,7 +37,9 @@ fmt: fmt/go fmt/prettier
 
 .PHONY: fmt/go
 fmt/go:
-	go fmt ./... ./enterprise/...
+	go fmt ./...
+	cd enterprise
+	go fmt ./...
 
 .PHONY: fmt/prettier
 fmt/prettier:
@@ -53,13 +55,16 @@ lint/go: lint/go/linux lint/go/other
 .PHONY: lint/go/linux
 lint/go/linux:
 	# Config file: .golangci.yml
-	golangci-lint run ./... ./enterprise/...
+	golangci-lint run ./...
+	cd enterprise
+	golangci-lint run ./...
 
 .PHONY: lint/go/other
 lint/go/other:
 	# The windows and darwin builds include the same files.
 	# Config file: .golangci.yml
-	GOOS=windows golangci-lint run ./... ./enterprise/...
+	GOOS=windows golangci-lint run ./...
+	# Enterprise dir does not support Windows or Darwin.
 
 .PHONY: lint/c
 lint/c: ci/.clang-image
@@ -76,13 +81,17 @@ test: test/go
 .PHONY: test/go
 test/go:
 	go clean -testcache
-	gotestsum --debug -- -v -short ./... ./enterprise/...
+	gotestsum --debug -- -v -short ./...
+	cd enterprise
+	gotestsum --debug -- -v -short ./...
 
 # test/go-sudo is equivalent to test/go but runs the test binary using sudo.
 # Some tests are skipped if not running as root.
 .PHONY: test/go-sudo
 test/go-sudo:
 	go clean -testcache
-	gotestsum --debug -- -exec sudo -v -short ./... ./enterprise/...
+	gotestsum --debug -- -exec sudo -v -short ./...
+	cd enterprise
+	gotestsum --debug -- -exec sudo -v -short ./...
 
 include Makefile.enterprise
