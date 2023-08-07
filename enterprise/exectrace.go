@@ -1,6 +1,6 @@
 /*
  * This file is licensed under the Coder Enterprise License. Please see
- * ./LICENSE.
+ * ../LICENSE.enterprise.
  */
 package exectracewrapper
 

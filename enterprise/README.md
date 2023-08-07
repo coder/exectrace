@@ -46,4 +46,4 @@ and we will see what we can do.
 
 ## License
 
-Coder Enterprise license. See [LICENSE](LICENSE).
+Coder Enterprise license. See [LICENSE.enterprise](../LICENSE.enterprise).
