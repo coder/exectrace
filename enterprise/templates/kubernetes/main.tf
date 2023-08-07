@@ -4,6 +4,7 @@
 // - Adds the exectrace sidecar container.
 // - Updates the workspace container command to send the process ID namespace
 //   inum to the sidecar container.
+// - Updates the workspace agent subsystem to "exectrace" for telemetry.
 
 terraform {
   required_providers {
@@ -348,6 +349,10 @@ resource "kubernetes_pod" "main" {
       env {
         name  = "CODER_AGENT_TOKEN"
         value = coder_agent.main.token
+      }
+      env {
+        name  = "CODER_AGENT_SUBSYSTEM"
+        value = "exectrace"
       }
       resources {
         requests = {
