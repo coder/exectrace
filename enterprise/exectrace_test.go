@@ -1,7 +1,5 @@
-/*
- * This file is licensed under the Coder Enterprise License. Please see
- * ../LICENSE.enterprise.
- */
+// This file is licensed under the Coder Enterprise License. Please see
+// ../LICENSE.enterprise.
 package exectracewrapper
 
 import (
