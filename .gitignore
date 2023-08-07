@@ -25,3 +25,11 @@
 
 # Make outputs
 .clang-image
+
+build
+
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.lock.hcl
+.terraform/

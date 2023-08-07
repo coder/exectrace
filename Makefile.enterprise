@@ -1,0 +1,98 @@
+# Create the output directory if it does not exist.
+ENTERPRISE_BUILD := enterprise/build
+$(shell mkdir -p "$(ENTERPRISE_BUILD)")
+
+VERSION := $(shell ./ci/scripts/version.sh)
+
+ARCHES := amd64 arm64 armv7
+
+BINARIES      := $(addprefix $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_,$(ARCHES))
+IMAGES        := $(foreach arch, $(ARCHES), $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_$(arch).tag)
+IMAGES_PUSHED := $(foreach image, $(IMAGES), $(image).pushed)
+
+BINARIES_VERSIONLESS := $(addprefix $(ENTERPRISE_BUILD)/exectrace_linux_,$(ARCHES))
+IMAGES_VERSIONLESS   := $(foreach arch, $(ARCHES), $(ENTERPRISE_BUILD)/exectrace_linux_$(arch).tag)
+
+MAIN_IMAGE        := $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux.tag
+MAIN_IMAGE_PUSHED := $(MAIN_IMAGE).pushed
+
+.PHONY: clean-enterprise
+clean-enterprise:
+	rm -rf "$(ENTERPRISE_BUILD)"
+	mkdir -p "$(ENTERPRISE_BUILD)"
+
+.PHONY: build
+build: $(BINARIES)
+
+$(BINARIES): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%: \
+	$(shell find . -type f -name '*.go') \
+	bpf/handler-bpfeb.o \
+	bpf/handler-bpfel.o
+
+	goarch="$*"
+	goarm=""
+	if [[ "$${goarch}" == "arm" ]]; then
+		goarm="7"
+	elif [[ "$${goarch}" == "armv"* ]] || [[ "$${goarch}" == "arm64v"* ]]; then
+		goarm="$${goarch//*v/}"
+		# Remove the v* suffix.
+		goarch="$${goarch//v*/}"
+	fi
+
+	# TODO: version details
+	GOOS=linux GOARCH="$${goarch}" GOARM="$${goarm}" go build \
+		-o "$@" \
+		./enterprise/cmd/exectrace
+
+$(BINARIES_VERSIONLESS): $(ENTERPRISE_BUILD)/exectrace_linux_%: $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%
+	rm -f "$@"
+	ln "$<" "$@"
+
+$(IMAGES): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag: $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_% enterprise/Dockerfile
+	arch="$*"
+	image_tag="$$(./enterprise/scripts/image_tag.sh --arch "$${arch}" --version "$(VERSION)")"
+
+	# Remap the arch from Golang to Docker.
+	declare -A arch_map=(
+		[amd64]="linux/amd64"
+		[arm64]="linux/arm64"
+		[arm]="linux/arm/v7"
+		[armv7]="linux/arm/v7"
+	)
+	if [[ "$${arch_map[$${arch}]+exists}" != "" ]]; then
+		arch="$${arch_map[$${arch}]}"
+	fi
+
+	temp_dir="$$(mktemp -d)"
+	cp enterprise/Dockerfile "$${temp_dir}/Dockerfile"
+	cp "$<" "$${temp_dir}/exectrace"
+
+	docker build \
+		--tag "$${image_tag}" \
+		--build-arg "CODER_VERSION=$(VERSION)" \
+		"$${temp_dir}"
+
+	rm -rf "$${temp_dir}"
+	echo "$${image_tag}" > "$@"
+
+$(IMAGES_VERSIONLESS): $(ENTERPRISE_BUILD)/exectrace_linux_%.tag: $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag
+	rm -f "$@"
+	ln "$<" "$@"
+
+$(IMAGES_PUSHED): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag.pushed: $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag
+	docker push "$$(cat "$<")"
+	cat "$<" > "$@"
+
+# Creating a docker manifest requires the images to be pushed, so this job
+# depends on IMAGES_PUSHED instead of IMAGES.
+$(MAIN_IMAGE): $(IMAGES_PUSHED)
+	image_tag="$$(./enterprise/scripts/image_tag.sh --version "$(VERSION)")"
+	docker manifest create \
+		"$${image_tag}" \
+		$(foreach image, $(IMAGES), "$$(cat "$(image)")")
+
+	echo "$${image_tag}" > "$@"
+
+$(MAIN_IMAGE_PUSHED): $(MAIN_IMAGE)
+	docker manifest push "$$(cat "$<")"
+	cat "$<" > "$@"

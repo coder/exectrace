@@ -1,119 +1,132 @@
-# See https://golangci-lint.run/usage/configuration/ for reference.
+# This is copied from github.com/coder/coder.
+#
+# Changes:
+# - removed ruleguard
+# - removed testpackage
 
 linters-settings:
+  gocognit:
+    min-complexity: 46 # Min code complexity (def 30).
+
+  goconst:
+    min-len: 4 # Min length of string consts (def 3).
+    min-occurrences: 3 # Min number of const occurrences (def 3).
+
   gocritic:
     enabled-checks:
-      - appendAssign
-      - appendCombine
+      # - appendAssign
+      # - appendCombine
       - argOrder
-      - assignOp
-      - badCall
+      # - assignOp
+      # - badCall
       - badCond
       - badLock
       - badRegexp
       - boolExprSimplify
-      - builtinShadow
+      # - builtinShadow
       - builtinShadowDecl
       - captLocal
       - caseOrder
       - codegenComment
-      - commentedOutCode
+      # - commentedOutCode
       - commentedOutImport
       - commentFormatting
       - defaultCaseOrder
       - deferUnlambda
-      - deprecatedComment
-      - docStub
+      # - deprecatedComment
+      # - docStub
       - dupArg
       - dupBranchBody
       - dupCase
       - dupImport
       - dupSubExpr
-      - elseif
-      - emptyDecl
+      # - elseif
       - emptyFallthrough
-      - emptyStringTest
-      - equalFold
-      - evalOrder
-      - exitAfterDefer
-      - exposedSyncMutex
-      - externalErrorReassign
-      - filepathJoin
+      # - emptyStringTest
+      # - equalFold
+      # - evalOrder
+      # - exitAfterDefer
+      # - exposedSyncMutex
+      # - filepathJoin
       - flagDeref
       - flagName
       - hexLiteral
-      - httpNoBody
-      - hugeParam
-      - ifElseChain
-      - importShadow
+      # - httpNoBody
+      # - hugeParam
+      # - ifElseChain
+      # - importShadow
       - indexAlloc
       - initClause
       - ioutilDeprecated
       - mapKey
       - methodExprCall
-      - nestingReduce
+      # - nestingReduce
       - newDeref
       - nilValReturn
-      - octalLiteral
+      # - octalLiteral
       - offBy1
-      - paramTypeCombine
-      - preferDecodeRune
-      - preferFilepathJoin
-      - preferFprint
-      - preferStringWriter
-      - preferWriteByte
-      - ptrToRefParam
-      - rangeExprCopy
-      - rangeValCopy
-      - redundantSprint
+      # - paramTypeCombine
+      # - preferStringWriter
+      # - preferWriteByte
+      # - ptrToRefParam
+      # - rangeExprCopy
+      # - rangeValCopy
       - regexpMust
       - regexpPattern
-      - regexpSimplify
-      - returnAfterHttpError
-      - ruleguard
+      # - regexpSimplify
+      # - ruleguard
       - singleCaseSwitch
-      - sliceClear
       - sloppyLen
-      - sloppyReassign
+      # - sloppyReassign
       - sloppyTypeAssert
       - sortSlice
       - sprintfQuotedString
       - sqlQuery
-      - stringConcatSimplify
-      - stringXbytes
+      # - stringConcatSimplify
+      # - stringXbytes
+      # - suspiciousSorting
       - switchTrue
-      - syncMapLoadAndDelete
-      - timeExprSimplify
-      - tooManyResultsChecker
       - truncateCmp
       - typeAssertChain
-      - typeDefFirst
+      # - typeDefFirst
       - typeSwitchVar
-      - typeUnparen
+      # - typeUnparen
       - underef
-      - unlabelStmt
-      - unlambda
-      - unnamedResult
-      - unnecessaryBlock
-      - unnecessaryDefer
-      - unslice
+      # - unlabelStmt
+      # - unlambda
+      # - unnamedResult
+      # - unnecessaryBlock
+      # - unnecessaryDefer
+      # - unslice
       - valSwap
       - weakCond
-      - whyNoLint
-      - wrapperFunc
-      - yodaStyleExpr
+      # - whyNoLint
+      # - wrapperFunc
+      # - yodaStyleExpr
+
+  staticcheck:
+    # https://staticcheck.io/docs/options#checks
+    # We disable SA1019 because it gets angry about our usage of xerrors. We
+    # intentionally xerrors because stack frame support didn't make it into the
+    # stdlib port.
+    checks: ["all", "-SA1019"]
 
   goimports:
-    local-prefixes: cdr.dev/exectrace
+    local-prefixes: coder.com,cdr.dev,go.coder.com,github.com/cdr,github.com/coder
 
   gocyclo:
     min-complexity: 50
 
+  importas:
+    no-unaliased: true
+
   misspell:
     locale: US
+    ignore-words:
+      - trialer
 
   nestif:
-    min-complexity: 5
+    min-complexity: 4 # Min complexity of if statements (def 5, goal 4)
 
   revive:
     # see https://github.com/mgechev/revive#available-rules for details.
@@ -130,7 +143,7 @@ linters-settings:
       - name: constant-logical-expr
       - name: context-as-argument
       - name: context-keys-type
-      #- name: deep-exit
+      - name: deep-exit
       - name: defer
       - name: dot-imports
       - name: duplicated-imports
@@ -149,7 +162,7 @@ linters-settings:
       - name: import-shadowing
       - name: increment-decrement
       - name: indent-error-flow
-      - name: modifies-parameter
+      # - name: modifies-parameter
       - name: modifies-value-receiver
       - name: package-comments
       - name: range
@@ -173,17 +186,32 @@ linters-settings:
       - name: var-naming
       - name: waitgroup-by-value
 
+issues:
+  # Rules listed here: https://github.com/securego/gosec#available-rules
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        # We use assertions rather than explicitly checking errors in tests
+        - errcheck
+
+  fix: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 run:
   concurrency: 4
+  skip-dirs:
+    - node_modules
   timeout: 5m
 
+# Over time, add more and more linters from
+# https://golangci-lint.run/usage/linters/ as the code improves.
 linters:
   disable-all: true
   enable:
     - asciicheck
     - bidichk
     - bodyclose
-    - contextcheck
     - deadcode
     - dogsled
     - errcheck
@@ -200,20 +228,25 @@ linters:
     - govet
     - importas
     - ineffassign
-    #- ireturn
     - makezero
     - misspell
     - nilnil
     - noctx
+    - paralleltest
     - revive
-    - rowserrcheck
-    - sqlclosecheck
+
+    # These don't work until the following issue is solved.
+    # https://github.com/golangci/golangci-lint/issues/2649
+    # - rowserrcheck
+    # - sqlclosecheck
+    # - structcheck
+    # - wastedassign
+
     - staticcheck
-    - structcheck
     - tenv
+    # - testpackage
+    - tparallel
     - typecheck
     - unconvert
-    #- unused
+    - unused
     - varcheck
-    #- varnamelen
-    - wastedassign
