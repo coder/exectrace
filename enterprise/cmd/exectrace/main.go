@@ -1,3 +1,5 @@
+// This file is licensed under the Coder Enterprise License. Please see
+// ../../../LICENSE.enterprise.
 package main
 
 import (
