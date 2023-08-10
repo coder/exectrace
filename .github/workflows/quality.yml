@@ -36,7 +36,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.16.12"
+          go-version: "^1.20.7"
 
       - name: Run make fmt/go
         run: make fmt/go
@@ -54,7 +54,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: "14"
+          node-version: "18"
 
       - name: Install prettier
         run: npm install --global prettier
@@ -75,12 +75,12 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.16.12"
+          go-version: "^1.20.7"
 
       - name: Install golangci-lint
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-            | sh -s -- -b $(go env GOPATH)/bin v1.43.0
+            | sh -s -- -b $(go env GOPATH)/bin v1.53.2
 
       # Linting needs to be done on each build variation of GOOS.
       - name: Run make lint/go/linux

@@ -142,7 +142,7 @@ func (t *tracer) start() error {
 
 	// Attach the eBPF program to the `sys_enter_execve` tracepoint, which
 	// is triggered at the beginning of each `execve()` syscall.
-	t.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", t.objs.EnterExecveProg)
+	t.tp, err = link.Tracepoint("syscalls", "sys_enter_execve", t.objs.EnterExecveProg, nil)
 	if err != nil {
 		return xerrors.Errorf("open tracepoint: %w", err)
 	}

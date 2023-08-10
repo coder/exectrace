@@ -1,0 +1,94 @@
+name: enterprise-release
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: Force a dev version to be generated, implies dry_run.
+        type: boolean
+        required: true
+      dry_run:
+        description: Perform a dry-run release.
+        type: boolean
+        required: true
+
+permissions:
+  # Required to publish a release
+  contents: write
+  # Necessary to push docker images to ghcr.io.
+  packages: write
+
+env:
+  CODER_RELEASE: ${{ github.event.inputs.snapshot && 'false' || 'true' }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      # Necessary for Docker manifest
+      DOCKER_CLI_EXPERIMENTAL: "enabled"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Docker Login
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: "^1.20.7"
+
+      - name: Build binaries
+        run: |
+          set -euxo pipefail
+          go mod download
+
+          version=$(./scripts/version.sh)
+          make -j \
+            enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}
+
+      - name: Build Docker images
+        run: |
+          set -euxo pipefail
+
+          version=$(./scripts/version.sh)
+          make -j \
+            enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}.tag
+
+      - name: Push Docker images
+        if: ${{ !github.event.inputs.snapshot && !github.event.inputs.dry_run }}
+        run: |
+          set -euxo pipefail
+
+          make -j \
+            enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}.tag.pushed
+
+          # Tag as latest and push
+          for arch in amd64 arm64 armv7; do
+            versioned_tag=$(cat enterprise/build/exectrace_"$version"_linux_"$arch".tag)
+            latest_tag=$(./enterprise/scripts/image_tag.sh --arch "$arch" --version latest)
+
+            docker tag "$versioned_tag" "$latest_tag"
+            docker push "$latest_tag"
+          done
+
+      - name: Build and push multi-arch Docker image
+        if: ${{ !github.event.inputs.snapshot && !github.event.inputs.dry_run }}
+        run: |
+          set -euxo pipefail
+
+          version=$(./scripts/version.sh)
+          make -j \
+            enterprise/build/exectrace_"$version"_linux.tag.pushed
+
+          # Tag as latest and push
+          versioned_tag=$(cat enterprise/build/exectrace_"$version"_linux.tag)
+          latest_tag=$(./enterprise/scripts/image_tag.sh --version latest)
+
+          docker tag "$versioned_tag" "$latest_tag"
+          docker push "$latest_tag"

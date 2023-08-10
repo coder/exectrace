@@ -6,15 +6,29 @@ library.
 exectrace loads a pre-compiled [eBPF program](./bpf/handler.c) into the running
 kernel to receive details about the `exec` family of syscalls.
 
+## Coder
+
+exectrace provides workspace process logging for Coder v1 and
+[Coder v2](https://github.com/coder/coder) (aka. Coder OSS).
+
+Documentation for how to setup workspace process logging for Coder v1 users can
+be found
+[here](https://coder.com/docs/v1/v1.38/admin/workspace-management/process-logging).
+
+Documentation for Coder v2 users can be found in
+[enterprise/README.md](enterprise/README.md).
+
 ## Requirements
 
 exectrace only supports Go 1.16+ and Linux kernel 5.8+ (due to the use of
-`BPF_MAP_TYPE_RINGBUF`). Additionally, the kernel config `CONFIG_DEBUG_INFO_BTF=y` is required.
+`BPF_MAP_TYPE_RINGBUF`). Additionally, the kernel config
+`CONFIG_DEBUG_INFO_BTF=y` is required.
 
-To validate this config is enabled, run either of the following commands directly on the system:
+To validate this config is enabled, run either of the following commands
+directly on the system:
 
 ```console
-cat /proc/config.gz | gunzip | grep CONFIG_DEBUG_INFO_BTF
+$ cat /proc/config.gz | gunzip | grep CONFIG_DEBUG_INFO_BTF
 ```
 
 ```console
@@ -32,8 +46,8 @@ $ go get -u github.com/coder/exectrace
 You will need root access, `CAP_SYS_ADMIN` or `CAP_BPF`, to run eBPF programs on
 your system.
 
-> Use `go run -exec sudo ./cmd/program` to compile a program and
-> start it with `sudo`
+> Use `go run -exec sudo ./cmd/program` to compile a program and start it with
+> `sudo`
 
 ```console
 $ go install -u github.com/coder/exectrace/cmd/exectrace
@@ -48,12 +62,11 @@ $ sudo exectrace
 
 ## Usage
 
-exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then
-you can start reading events from the returned `Tracer`.
+exectrace exposes a minimal API surface. Call `exectrace.New(nil)` and then you
+can start reading events from the returned `Tracer`.
 
-It is important that you close the tracer to avoid leaking kernel resources,
-so we recommend implementing a simple signal handler like the one in this
-example:
+It is important that you close the tracer to avoid leaking kernel resources, so
+we recommend implementing a simple signal handler like the one in this example:
 
 ```go
 package main
@@ -92,8 +105,8 @@ func main() {
 }
 ```
 
-> For a full usage example, refer to this [comprehensive program](./cmd/exectrace/main.go)
-> that uses the library.
+> For a full usage example, refer to this
+> [comprehensive program](./cmd/exectrace/main.go) that uses the library.
 
 ## Development
 
@@ -131,3 +144,6 @@ implement additional filtering yourself).
 ---
 
 Dual licensed under the MIT and GPL 2.0 licenses. See [LICENSE](LICENSE).
+
+Code in the enterprise directory has a different license. See
+[LICENSE.enterprise](LICENSE.enterprise).

@@ -35,11 +35,13 @@ func rootCmd() *cobra.Command {
 		Short: "exectrace logs all exec calls on the system.",
 		Run: func(cmd *cobra.Command, args []string) {
 			if outputFormat != "text" && outputFormat != "json" {
+				//nolint:revive
 				log.Fatalf(`output format must be "text" or "json", got %q`, outputFormat)
 			}
 
 			err := run(pidNS, outputFormat)
 			if err != nil {
+				//nolint:revive
 				log.Fatalf("run exectrace: %+v", err)
 			}
 		},
@@ -69,6 +71,7 @@ func run(pidNS uint32, outputFormat string) error {
 		log.Print("signal received, closing tracer")
 		err := t.Close()
 		if err != nil {
+			//nolint:revive
 			log.Fatalf("error closing tracer: %+v", err)
 		}
 	}()

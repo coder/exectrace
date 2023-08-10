@@ -12,5 +12,6 @@ import (
 var NativeEndian = binary.LittleEndian
 
 // The compiled BPF program on little endian processors.
+//
 //go:embed bpf/handler-bpfel.o
 var bpfProgram []byte
