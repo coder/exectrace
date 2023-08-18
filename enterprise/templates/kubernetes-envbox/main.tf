@@ -5,6 +5,9 @@
 // - Updates the workspace container command to send the process ID namespace
 //   inum to the sidecar container.
 // - Updates the workspace agent subsystem to "exectrace" for telemetry.
+//
+// If you make changes to the exectrace components in this file, please update
+// the corresponding docs on coder.com.
 
 terraform {
   required_providers {
