@@ -16,6 +16,9 @@ IMAGES_VERSIONLESS   := $(foreach arch, $(ARCHES), $(ENTERPRISE_BUILD)/exectrace
 MAIN_IMAGE        := $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux.tag
 MAIN_IMAGE_PUSHED := $(MAIN_IMAGE).pushed
 
+MAIN_IMAGE_LATEST        := $(ENTERPRISE_BUILD)/exectrace_latest_linux.tag
+MAIN_IMAGE_LATEST_PUSHED := $(MAIN_IMAGE_LATEST).pushed
+
 .PHONY: clean-enterprise
 clean-enterprise:
 	rm -rf "$(ENTERPRISE_BUILD)"
@@ -85,8 +88,12 @@ $(IMAGES_PUSHED): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag.pushed: $
 
 # Creating a docker manifest requires the images to be pushed, so this job
 # depends on IMAGES_PUSHED instead of IMAGES.
-$(MAIN_IMAGE): $(IMAGES_PUSHED)
-	image_tag="$$(./enterprise/scripts/image_tag.sh --version "$(VERSION)")"
+$(MAIN_IMAGE) $(MAIN_IMAGE_LATEST): $(IMAGES_PUSHED)
+	version="$(VERSION)"
+	if [[ "$@" == "$(MAIN_IMAGE_LATEST)" ]]; then
+		version="latest"
+	fi
+	image_tag="$$(./enterprise/scripts/image_tag.sh --version "$${version}")"
 	docker manifest create \
 		"$${image_tag}" \
 		$(foreach image, $(IMAGES), "$$(cat "$(image)")")
@@ -94,5 +101,9 @@ $(MAIN_IMAGE): $(IMAGES_PUSHED)
 	echo "$${image_tag}" > "$@"
 
 $(MAIN_IMAGE_PUSHED): $(MAIN_IMAGE)
+	docker manifest push "$$(cat "$<")"
+	cat "$<" > "$@"
+
+$(MAIN_IMAGE_LATEST_PUSHED): $(MAIN_IMAGE_LATEST)
 	docker manifest push "$$(cat "$<")"
 	cat "$<" > "$@"
