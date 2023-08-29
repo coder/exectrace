@@ -75,6 +75,7 @@ jobs:
         run: |
           set -euxo pipefail
 
+          version=$(./ci/scripts/version.sh)
           make -j \
             enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}.tag.pushed
 
