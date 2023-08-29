@@ -48,7 +48,7 @@ jobs:
           set -euxo pipefail
           go mod download
 
-          version=$(./scripts/version.sh)
+          version=$(./ci/scripts/version.sh)
           make -j \
             enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}
 
@@ -56,7 +56,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          version=$(./scripts/version.sh)
+          version=$(./ci/scripts/version.sh)
           make -j \
             enterprise/build/exectrace_"$version"_linux_{amd64,arm64,armv7}.tag
 
@@ -82,7 +82,7 @@ jobs:
         run: |
           set -euxo pipefail
 
-          version=$(./scripts/version.sh)
+          version=$(./ci/scripts/version.sh)
           make -j \
             enterprise/build/exectrace_"$version"_linux.tag.pushed
 
