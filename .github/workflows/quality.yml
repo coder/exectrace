@@ -36,7 +36,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.20.9"
+          go-version: "^1.21.9"
 
       - name: Run make fmt/go
         run: make fmt/go
@@ -75,7 +75,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.20.9"
+          go-version: "^1.21.9"
 
       - name: Install golangci-lint
         run: |

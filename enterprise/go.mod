@@ -2,8 +2,6 @@ module github.com/coder/exectrace/enterprise
 
 go 1.21.0
 
-toolchain go1.22.2
-
 replace github.com/coder/exectrace => ../
 
 require (
