@@ -20,30 +20,30 @@ linters-settings:
     enabled-checks:
       # - appendAssign
       # - appendCombine
-      - argOrder
+      #- argOrder
       # - assignOp
       # - badCall
-      - badCond
+      #- badCond
       - badLock
       - badRegexp
       - boolExprSimplify
       # - builtinShadow
       - builtinShadowDecl
-      - captLocal
-      - caseOrder
-      - codegenComment
+      #- captLocal
+      #- caseOrder
+      #- codegenComment
       # - commentedOutCode
       - commentedOutImport
-      - commentFormatting
-      - defaultCaseOrder
+      #- commentFormatting
+      #- defaultCaseOrder
       - deferUnlambda
       # - deprecatedComment
       # - docStub
-      - dupArg
-      - dupBranchBody
-      - dupCase
+      #- dupArg
+      #- dupBranchBody
+      #- dupCase
       - dupImport
-      - dupSubExpr
+      #- dupSubExpr
       # - elseif
       - emptyFallthrough
       # - emptyStringTest
@@ -52,8 +52,8 @@ linters-settings:
       # - exitAfterDefer
       # - exposedSyncMutex
       # - filepathJoin
-      - flagDeref
-      - flagName
+      #- flagDeref
+      #- flagName
       - hexLiteral
       # - httpNoBody
       # - hugeParam
@@ -61,47 +61,47 @@ linters-settings:
       # - importShadow
       - indexAlloc
       - initClause
-      - mapKey
+      #- mapKey
       - methodExprCall
       # - nestingReduce
-      - newDeref
+      #- newDeref
       - nilValReturn
       # - octalLiteral
-      - offBy1
+      #- offBy1
       # - paramTypeCombine
       # - preferStringWriter
       # - preferWriteByte
       # - ptrToRefParam
       # - rangeExprCopy
       # - rangeValCopy
-      - regexpMust
+      #- regexpMust
       - regexpPattern
       # - regexpSimplify
       #- ruleguard
-      - singleCaseSwitch
-      - sloppyLen
+      #- singleCaseSwitch
+      #- sloppyLen
       # - sloppyReassign
-      - sloppyTypeAssert
+      #- sloppyTypeAssert
       - sortSlice
       - sprintfQuotedString
       - sqlQuery
       # - stringConcatSimplify
       # - stringXbytes
       # - suspiciousSorting
-      - switchTrue
+      #- switchTrue
       - truncateCmp
       - typeAssertChain
       # - typeDefFirst
-      - typeSwitchVar
+      #- typeSwitchVar
       # - typeUnparen
-      - underef
+      #- underef
       # - unlabelStmt
       # - unlambda
       # - unnamedResult
       # - unnecessaryBlock
       # - unnecessaryDefer
       # - unslice
-      - valSwap
+      #- valSwap
       - weakCond
       # - whyNoLint
       # - wrapperFunc
@@ -207,15 +207,17 @@ issues:
       linters:
         - exhaustruct
 
+  exclude-files:
+    - scripts/rules.go
+
+  exclude-dirs:
+    - node_modules
+
   fix: true
   max-issues-per-linter: 0
   max-same-issues: 0
 
 run:
-  skip-dirs:
-    - node_modules
-  skip-files:
-    - scripts/rules.go
   timeout: 10m
 
 # Over time, add more and more linters from

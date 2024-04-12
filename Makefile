@@ -24,12 +24,12 @@ handlers: bpf/handler-bpfeb.o bpf/handler-bpfel.o
 clean: clean-enterprise
 	rm -rf bpf/handler-bpfeb.o bpf/handler-bpfel.o
 
-ci/.clang-image: ci/images/clang-13/Dockerfile
+ci/.clang-image: ci/images/clang-13/Dockerfile ci/scripts/clang_image.sh
 	./ci/scripts/clang_image.sh
 	touch ci/.clang-image
 
 # bpfeb is big endian, bpfel is little endian.
-bpf/handler-bpfeb.o bpf/handler-bpfel.o: bpf/*.h bpf/*.c ci/.clang-image
+bpf/handler-bpfeb.o bpf/handler-bpfel.o: bpf/*.h bpf/*.c ci/.clang-image ci/scripts/build_handler.sh
 	./ci/scripts/build_handler.sh "$(@F)"
 
 .PHONY: fmt

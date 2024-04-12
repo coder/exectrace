@@ -25,7 +25,7 @@ fi
 #   compiling on. This isn't appropriate for ahead of time compiled code so
 #   force the most compatible version.
 # -g:
-#   We always want BTF to be generates, so enforce debug symbols.
+#   We always want BTF to be generated, so enforce debug symbols.
 # -Wall -Wextra -Werror:
 #   Enable lots of warnings, and treat all warnings as fatal build errors.
 # -fno-ident:

@@ -113,25 +113,29 @@ func main() {
 You will need the following:
 
 - Docker (the Makefile runs clang within a Docker container for reproducibility)
+- Golang 1.20+
 - `golangci-lint`
 - `prettier`
 - `shellcheck`
 
-Since the eBPF program is packaged as a Go library, you need to compile the
-program and include it in the repo.
+Since the eBPF program is packaged using `go:embed`, you will need to compile
+the program and include it in the repo.
 
 If you change the files in the `bpf` directory, run `make` and ensure that you
 include the `.o` files you changed in your commit (CI will verify that you've
 done this correctly).
 
-## Status: beta
+## Status: stable
 
-This library is ready to use as-is, though it is under active development as we
-modify it to suit the needs of Coder's [enterprise product](https://coder.com).
+This library is ready to use as-is. It has been used in production for years and
+has received minimal maintenance over that time period.
 
-We plan on adding more features and fields that can be read from the API, as
-well as easier-to-use methods for filtering events (currently, you must
-implement additional filtering yourself).
+In April 2024, a system to send logs from the kernel to userspace was added
+which can make discovering potential issues in production/development much
+easier.
+
+The API will likely not be further modified as we have no need for additional
+fields/features. We will continue to maintain the library as needed.
 
 ## See also
 

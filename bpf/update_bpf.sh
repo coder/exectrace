@@ -6,7 +6,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # Version of libbpf to fetch headers from.
-LIBBPF_VERSION="${LIBBPF_VERSION:-0.4.0}"
+LIBBPF_VERSION="${LIBBPF_VERSION:-0.8.2}"
 
 # The headers we want to download from the repo. These files are found in the
 # src/ directory in the repo.
@@ -31,4 +31,7 @@ EOF
 
     # Remove extra trailing newlines.
     sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' "$f"
+
+    # Change any <...> includes to "..." and remove bpf/ prefix.
+    sed -i -E -e 's/#include <(.*)>/#include "\1"/g' -e 's/#include "bpf\//#include "/g' "$f"
 done

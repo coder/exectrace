@@ -36,7 +36,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.20.7"
+          go-version: "^1.20.9"
 
       - name: Run make fmt/go
         run: make fmt/go
@@ -75,12 +75,12 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v2
         with:
-          go-version: "^1.20.7"
+          go-version: "^1.20.9"
 
       - name: Install golangci-lint
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-            | sh -s -- -b $(go env GOPATH)/bin v1.53.2
+            | sh -s -- -b $(go env GOPATH)/bin v1.57.2
 
       # Linting needs to be done on each build variation of GOOS.
       - name: Run make lint/go/linux
@@ -99,6 +99,14 @@ jobs:
 
       - name: Run make lint/c
         run: make lint/c
+
+      - name: Ensure DEBUG is disabled
+        run: |
+          # look for uncommented "#define DEBUG" in bpf/handler.c
+          if grep -q "^#define DEBUG" bpf/handler.c; then
+            echo "DEBUG is enabled in bpf/handler.c"
+            exit 1
+          fi
 
   lint-shellcheck:
     name: lint/shellcheck

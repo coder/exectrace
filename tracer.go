@@ -15,6 +15,13 @@ type TracerOpts struct {
 	//
 	// This filter runs in the kernel for high performance.
 	PidNS uint32
+
+	// LogFn is called for each log line that is read from the kernel. All logs
+	// are considered error logs unless running a debug version of the eBPF
+	// program.
+	//
+	// If unspecified, a default log function is used that logs to stderr.
+	LogFn func(uid, gid, pid uint32, logLine string)
 }
 
 // Tracer allows consumers to read exec events from the kernel via an eBPF
@@ -23,6 +30,7 @@ type TracerOpts struct {
 type Tracer interface {
 	io.Closer
 
+	// Read blocks until an exec event is available, then returns it.
 	Read() (*Event, error)
 }
 
