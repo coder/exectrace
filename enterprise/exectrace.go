@@ -81,6 +81,9 @@ func Run(ctx context.Context, log slog.Logger, opts Options) error {
 	log.Debug(ctx, "starting tracer")
 	tracer, err := exectrace.New(&exectrace.TracerOpts{
 		PidNS: pidNS,
+		LogFn: func(uid, gid, pid uint32, logLine string) {
+			log.Error(ctx, "tracer error log: "+logLine, slog.F("uid", uid), slog.F("gid", gid), slog.F("pid", pid))
+		},
 	})
 	if err != nil {
 		return xerrors.Errorf("create tracer: %w", err)
