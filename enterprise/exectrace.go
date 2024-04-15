@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -24,16 +23,10 @@ import (
 )
 
 const (
-	pidNSPath = "/proc/self/ns/pid"
-
 	debugFS           = "debugfs"
 	debugFSMountpoint = "/sys/kernel/debug"
 	traceFS           = "tracefs"
 	traceFSMountpoint = debugFSMountpoint + "/tracing"
-)
-
-var (
-	nonNumericRegex = regexp.MustCompile(`[^\d]`)
 )
 
 type Options struct {
@@ -49,7 +42,7 @@ func Run(ctx context.Context, log slog.Logger, opts Options) error {
 	)
 	if opts.UseLocalPidNS {
 		log.Debug(ctx, "using local PidNS")
-		pidNS, err = getPidNS()
+		pidNS, err = exectrace.GetPidNS()
 		if err != nil {
 			return xerrors.Errorf("get current pidns: %w", err)
 		}
@@ -263,20 +256,4 @@ func ensureVirtualMountpoint(mountType, dest string, opts []string) error {
 	}
 
 	return nil
-}
-
-// getPidNS returns the inum of the PidNS used by the current process.
-func getPidNS() (uint32, error) {
-	rawPidNS, err := os.Readlink(pidNSPath)
-	if err != nil {
-		return 0, xerrors.Errorf("readlink %v: %w", pidNSPath, err)
-	}
-
-	rawPidNS = nonNumericRegex.ReplaceAllString(rawPidNS, "")
-	pidNS, err := strconv.ParseUint(rawPidNS, 10, 32)
-	if err != nil {
-		return 0, xerrors.Errorf("parse PidNS %v to uint32: %w", rawPidNS, err)
-	}
-
-	return uint32(pidNS), nil
 }

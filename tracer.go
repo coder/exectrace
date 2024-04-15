@@ -1,6 +1,17 @@
 package exectrace
 
-import "io"
+import (
+	"io"
+	"os"
+	"regexp"
+	"strconv"
+
+	"golang.org/x/xerrors"
+)
+
+const pidNSPath = "/proc/self/ns/pid"
+
+var nonNumericRegex = regexp.MustCompile(`[^\d]`)
 
 // TracerOpts contains all of the configuration options for the tracer. All are
 // optional.
@@ -32,6 +43,10 @@ type Tracer interface {
 
 	// Read blocks until an exec event is available, then returns it.
 	Read() (*Event, error)
+
+	// FD returns the FD of the loaded eBPF program. This is useful for
+	// benchmarking.
+	FD() int
 }
 
 // Event contains data about each exec event with many fields for easy
@@ -54,4 +69,20 @@ type Event struct {
 	// Comm is the "name" of the parent process, usually the filename of the
 	// executable (but not always).
 	Comm string `json:"comm"`
+}
+
+// GetPidNS returns the inum of the PidNS used by the current process.
+func GetPidNS() (uint32, error) {
+	rawPidNS, err := os.Readlink(pidNSPath)
+	if err != nil {
+		return 0, xerrors.Errorf("readlink %v: %w", pidNSPath, err)
+	}
+
+	rawPidNS = nonNumericRegex.ReplaceAllString(rawPidNS, "")
+	pidNS, err := strconv.ParseUint(rawPidNS, 10, 32)
+	if err != nil {
+		return 0, xerrors.Errorf("parse PidNS %v to uint32: %w", rawPidNS, err)
+	}
+
+	return uint32(pidNS), nil
 }

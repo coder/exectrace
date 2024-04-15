@@ -97,8 +97,8 @@ func run(pidNS uint32, outputFormat string) error {
 			}
 
 			_, _ = fmt.Printf(
-				"[%v, comm=%q, uid=%v, gid=%v] %v%v\n",
-				event.PID, event.Comm, event.UID, event.GID,
+				"[%v, comm=%q, uid=%v, gid=%v, filename=%v] %v%v\n",
+				event.PID, event.Comm, event.UID, event.GID, event.Filename,
 				shellquote.Join(event.Argv...), ellipsis,
 			)
 			continue

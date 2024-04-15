@@ -133,9 +133,13 @@ func New(opts *TracerOpts) (Tracer, error) {
 	return t, nil
 }
 
+func (t *tracer) FD() int {
+	return t.objs.EnterExecveProg.FD()
+}
+
 func (t *tracer) start() error {
-	// If we don't startup successfully, we need to make sure all of the
-	// stuff is cleaned up properly or we'll be leaking kernel resources.
+	// If we don't startup successfully, we need to make sure all of the stuff
+	// is cleaned up properly or we'll be leaking kernel resources.
 	ok := false
 	defer func() {
 		if !ok {
@@ -144,8 +148,8 @@ func (t *tracer) start() error {
 		}
 	}()
 
-	// Allow the current process to lock memory for eBPF resources. This
-	// does nothing on 5.11+ kernels which don't need this.
+	// Allow the current process to lock memory for eBPF resources. This does
+	// nothing on 5.11+ kernels which don't need this.
 	err := rlimit.RemoveMemlock()
 	if err != nil {
 		return xerrors.Errorf("remove memlock: %w", err)

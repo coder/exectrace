@@ -253,13 +253,17 @@ s32 enter_execve(struct exec_info *ctx) {
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret) {
 		LOG1("could not get current comm: %d", ret);
+		bpf_ringbuf_discard(event, 0);
+		return 1;
 	}
 
 	// Write the filename in addition to argv[0] because the filename contains
 	// the full path to the file which could be more useful in some situations.
-	ret = BPF_PROBE_READ_STR_INTO(&event->filename, ctx, filename);
+	ret = bpf_probe_read_user_str(event->filename, sizeof(event->filename), ctx->filename);
 	if (ret < 0) {
 		LOG1("could not read filename into event struct: %d", ret);
+		bpf_ringbuf_discard(event, 0);
+		return 1;
 	}
 
 	// Copy everything from ctx->argv to event->argv, incrementing event->argc
