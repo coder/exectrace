@@ -56,8 +56,8 @@ $ exectrace --help
 
 $ sudo exectrace
 2021/12/01 16:42:02 Waiting for events..
-[1188921, comm="node", uid=1002, gid=1003] /bin/sh -c 'which ps'
-[1188922, comm="sh", uid=1002, gid=1003] which ps
+[1188921, comm="node", uid=1002, gid=1003, filename=/bin/sh] /bin/sh -c 'which ps'
+[1188922, comm="sh", uid=1002, gid=1003, filename=/usr/bin/which] which ps
 ```
 
 ## Usage
