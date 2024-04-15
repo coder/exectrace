@@ -57,7 +57,11 @@ type Event struct {
 	// (which is equal to `filepath.Base(e.Filename)` in most circumstances).
 	Argv []string `json:"argv"`
 	// Truncated is true if we were unable to read all process arguments into
-	// Argv because there were more than ARGLEN arguments.
+	// Argv because there were more than 32 arguments, or if one of the
+	// arguments was greater than or equal to 1023 bytes in length.
+	//
+	// It may indicate that the user or process is trying to hide arguments from
+	// the tracer.
 	Truncated bool `json:"truncated"`
 
 	// These values are of the new process. Keep in mind that the exec call may

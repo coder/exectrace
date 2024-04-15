@@ -5,6 +5,7 @@ package exectrace_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -40,11 +41,11 @@ func TestExectrace(t *testing.T) {
 
 	// Launch processes.
 	const (
-		expected = "hello exectrace test 1"
+		expected = "hello exectrace basic test"
 		uid      = 1000
 		gid      = 2000
 	)
-	var args = []string{"sh", "-c", "# " + expected}
+	args := []string{"sh", "-c", "# " + expected}
 	filename, err := exec.LookPath(args[0])
 	require.NoError(t, err)
 	processDone := spamProcess(ctx, t, args, func(cmd *exec.Cmd) {
@@ -76,6 +77,82 @@ func TestExectrace(t *testing.T) {
 	<-processDone
 }
 
+func TestExectraceTruncatedArgs(t *testing.T) {
+	// This test must be run as root so we can start exectrace.
+	if os.Geteuid() != 0 {
+		t.Fatal("must be run as root")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	tracer, err := exectrace.New(&exectrace.TracerOpts{
+		LogFn: func(uid, gid, pid uint32, logLine string) {
+			t.Errorf("tracer error log (uid=%v, gid=%v, pid=%v): %s", uid, gid, pid, logLine)
+		},
+	})
+	require.NoError(t, err)
+	defer tracer.Close()
+
+	const expected = "hello exectrace overflow test"
+	args := []string{"echo", expected}
+
+	// Exectrace only captures the first 32 arguments of each process.
+	for i := 0; i < 30; i++ {
+		args = append(args, fmt.Sprint(i))
+	}
+	args = append(args, "final")
+	require.Len(t, args, 33)
+
+	// Launch processes.
+	processDone := spamProcess(ctx, t, args, nil)
+	event := getLogEntry(ctx, t, tracer, expected)
+
+	// Should only hold the first 32 args, and truncated should be true.
+	require.Len(t, event.Argv, 32)
+	require.Equal(t, args[:32], event.Argv, "event.Argv")
+	require.True(t, event.Truncated, "event.Truncated is false")
+
+	cancel()
+	<-processDone
+}
+
+func TestExectraceTruncatedLongArg(t *testing.T) {
+	// This test must be run as root so we can start exectrace.
+	if os.Geteuid() != 0 {
+		t.Fatal("must be run as root")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	tracer, err := exectrace.New(&exectrace.TracerOpts{
+		LogFn: func(uid, gid, pid uint32, logLine string) {
+			t.Errorf("tracer error log (uid=%v, gid=%v, pid=%v): %s", uid, gid, pid, logLine)
+		},
+	})
+	require.NoError(t, err)
+	defer tracer.Close()
+
+	// We only record the first 1024 bytes of each argument, so use an arg
+	// that's longer.
+	const expected = "hello exectrace arg length test"
+	args := []string{"echo", expected, strings.Repeat("a", 1025), "final"}
+
+	// Launch processes.
+	processDone := spamProcess(ctx, t, args, nil)
+	event := getLogEntry(ctx, t, tracer, expected)
+
+	// Should only hold the first 1021 chars of the long arg with a trailing
+	// "...".
+	args[2] = args[2][:1021] + "..."
+	require.Equal(t, args, event.Argv, "event.Argv")
+	require.True(t, event.Truncated, "event.Truncated is false")
+
+	cancel()
+	<-processDone
+}
+
 //nolint:paralleltest
 func TestExectracePIDNS(t *testing.T) {
 	// This test must be run as root so we can start exectrace.
@@ -100,8 +177,8 @@ func TestExectracePIDNS(t *testing.T) {
 		defer tracer.Close()
 
 		// Launch processes.
-		const expected = "hello exectrace test 2"
-		var args = []string{"sh", "-c", "# " + expected}
+		const expected = "hello exectrace pidns test same"
+		args := []string{"sh", "-c", "# " + expected}
 		processDone := spamProcess(ctx, t, args, nil)
 
 		_ = getLogEntry(ctx, t, tracer, expected)
@@ -127,8 +204,8 @@ func TestExectracePIDNS(t *testing.T) {
 		defer tracer.Close()
 
 		// Launch processes.
-		const expected = "hello exectrace test 3"
-		var args = []string{"sh", "-c", "# " + expected}
+		const expected = "hello exectrace pidns test child"
+		args := []string{"sh", "-c", "# " + expected}
 		processDone := spamProcess(ctx, t, args, func(cmd *exec.Cmd) {
 			cmd.SysProcAttr = &syscall.SysProcAttr{
 				// Subprocess will be in a child PID namespace.
@@ -159,8 +236,8 @@ func TestExectracePIDNS(t *testing.T) {
 		defer tracer.Close()
 
 		// Launch processes.
-		const expected = "hello exectrace test 3"
-		var args = []string{"sh", "-c", "# " + expected}
+		const expected = "hello exectrace pidns test different"
+		args := []string{"sh", "-c", "# " + expected}
 		processDone := spamProcess(ctx, t, args, nil)
 
 		// We should not see any events. Read events for up to 5 seconds.

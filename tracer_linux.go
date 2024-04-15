@@ -232,6 +232,12 @@ func (t *tracer) Read() (*Event, error) {
 	}
 	for i := 0; i < argc; i++ {
 		str := unix.ByteSliceToString(rawEvent.Argv[i][:])
+		// The copy in the eBPF code only copies 1023 bytes.
+		if len(str) >= argsize-1 {
+			ev.Truncated = true
+			// Set final 3 bytes to "..." to indicate truncation.
+			str = str[:argsize-3] + "..."
+		}
 		if strings.TrimSpace(str) != "" {
 			ev.Argv = append(ev.Argv, str)
 		}
