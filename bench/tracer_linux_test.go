@@ -92,3 +92,40 @@ func BenchmarkExectracePIDNSFilter(b *testing.B) {
 		}
 	})
 }
+
+func BenchmarkExectracePIDNSFilterNoHit(b *testing.B) {
+	// This test must be run as root so we can start exectrace.
+	if os.Geteuid() != 0 {
+		b.Fatal("must be run as root")
+	}
+
+	pidNS, err := exectrace.GetPidNS()
+	require.NoError(b, err)
+
+	// Start tracer.
+	tracer, err := exectrace.New(&exectrace.TracerOpts{
+		// Use a nonsense PID NS so we don't match any processes.
+		PidNS: pidNS + 1,
+		LogFn: func(uid, gid, pid uint32, logLine string) {
+			b.Errorf("tracer error log (uid=%v, gid=%v, pid=%v): %s", uid, gid, pid, logLine)
+		},
+	})
+	require.NoError(b, err)
+	defer tracer.Close()
+
+	eb := ebpfbench.NewEBPFBenchmark(b)
+	defer eb.Close()
+
+	eb.ProfileProgram(tracer.FD(), "enter_execve")
+	eb.Run(func(b *testing.B) {
+		// NOTE: iteration count can end up higher than b.N, see above.
+		//
+		// Since every event is a no hit because the filter doesn't match
+		// anything, results should not be impacted.
+		for i := 0; i < b.N; i++ {
+			cmd := exec.Command("true")
+			err := cmd.Run()
+			require.NoError(b, err)
+		}
+	})
+}
