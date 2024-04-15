@@ -18,6 +18,8 @@ if [[ "${#args[@]}" -eq 0 ]]; then
 fi
 
 # Start the go test process in a new PID namespace and exec with sudo.
+uid=$(id -u)
+gid=$(id -g)
 go_binary=$(command -v go)
 set -x
-exec sudo -E unshare --pid --fork --setuid "$(id -u)" --setgid "$(id -g)" -- "$go_binary" test -exec sudo "${args[@]}"
+exec sudo -E unshare --pid --fork --setuid "$uid" --setgid "$gid" -- "$go_binary" test -exec sudo "${args[@]}"
