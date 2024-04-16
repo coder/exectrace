@@ -8,7 +8,7 @@
 u8 __license[] SEC("license") = "Dual MIT/GPL"; // NOLINT
 
 // Adds some extra log entries that are usually spam when deployed in the real
-// world.
+// world. This is checked to ensure it's commented out in CI.
 //#define DEBUG
 
 // These constants must be kept in sync with Go.
@@ -67,18 +67,11 @@ struct log_entry_t {
 	u32 uid;
 	u32 gid;
 	u32 pid;
-	// fmt contains a format string that only contains "%d" and "%u" directives.
-	// In userspace we will replace these with the arguments in `args`.
-	u8  fmt[LOGFMTSIZE];
-	// These are communicated back to userspace as unsigned 32-bit integers, but
-	// depending on the format string, they could be treated as signed or
-	// unsigned.
-	u32 args[LOGARGLEN];
+	u8  log[LOGFMTSIZE];
 };
 
 static struct log_entry_t zero_log SEC(".rodata") = {
-	.fmt = {0},
-	.args = {},
+	.log = {0},
 };
 
 // This is the ring buffer we'll output events data to. The Go program reads
@@ -105,64 +98,48 @@ struct {
 // Indexes in the `filters` map for each configuration option.
 static u32 filter_pidns_idx SEC(".rodata") = 0;
 
-// LOG[N] writes the fmt and args to bpf_printk and also sends them to userspace
-// via send_log(). `N` is the amount of fmt args you want to use.
-#define LOG0(fmt) { \
-	bpf_printk(fmt); \
-	send_log(fmt, 0, 0, 0); \
-}
-#define LOG1(fmt, arg0) { \
-	bpf_printk(fmt, arg0); \
-	send_log(fmt, arg0, 0, 0); \
-}
-#define LOG2(fmt, arg0, arg1) { \
-	bpf_printk(fmt, arg0, arg1); \
-	send_log(fmt, arg0, arg1, 0); \
-}
-#define LOG3(fmt, arg0, arg1, arg2) { \
-	bpf_printk(fmt, arg0, arg1, arg2); \
-	send_log(fmt, arg0, arg1, arg2); \
-}
+// LOG[N] calls log() with the unused parameters zeroed out. `N` is the amount
+// of fmt args you want to use.
+#define LOG0(fmt) LOG3(fmt, 0, 0, 0)
+#define LOG1(fmt, arg0) LOG3(fmt, arg0, 0, 0)
+#define LOG2(fmt, arg0, arg1) LOG3(fmt, arg0, arg1, 0)
+#define LOG3(fmt, arg0, arg1, arg2) log(fmt, sizeof(fmt), arg0, arg1, arg2)
 
-// send_log writes the given fmt string and args to the logs ringbuf. Call
-// LOG[N]() instead of calling this directly.
-static void send_log(const char *fmt, u32 arg0, u32 arg1, u32 arg2) {
-	if (!fmt) {
-		return;
-	}
+// log logs to bpf_trace_printk() and sends the formatted log string to the logs
+// ringbuf. Call LOG[N]() instead of calling this directly.
+static void log(const char *fmt, u32 fmt_size, u32 arg0, u32 arg1, u32 arg2) {
+	bpf_trace_printk(fmt, fmt_size, arg0, arg1, arg2);
 
-	struct log_entry_t *log;
-	log = bpf_ringbuf_reserve(&logs, sizeof(struct log_entry_t), 0);
-	if (!log) {
+	struct log_entry_t *entry;
+	entry = bpf_ringbuf_reserve(&logs, sizeof(struct log_entry_t), 0);
+	if (!entry) {
 		bpf_printk("could not reserve logs ringbuf memory");
 		return;
 	}
 
 	// Zero out the log for safety. If we don't do this, we risk sending random
 	// kernel memory back to userspace.
-	s32 ret = bpf_probe_read_kernel(log, sizeof(struct log_entry_t), &zero_log);
+	s32 ret = bpf_probe_read_kernel(entry, sizeof(struct log_entry_t), &zero_log);
 	if (ret) {
 		bpf_printk("zero out log: %d", ret);
-		bpf_ringbuf_discard(log, 0);
+		bpf_ringbuf_discard(entry, 0);
 		return;
 	}
 
-	// Copy the fmt string into the log.
-	ret = bpf_probe_read_kernel_str(&log->fmt, sizeof(log->fmt), fmt);
+	entry->uid = bpf_get_current_uid_gid();
+	entry->gid = bpf_get_current_uid_gid() >> 32; // NOLINT(readability-magic-numbers)
+	entry->pid = bpf_get_current_pid_tgid();
+
+	// Format the string using snprintf.
+	u64 params[3] = {arg0, arg1, arg2};
+	ret = bpf_snprintf((char *) &entry->log, sizeof(entry->log), fmt, params, sizeof(params));
 	if (ret < 0) {
-		bpf_printk("could not read fmt into log struct: %d", ret);
-		bpf_ringbuf_discard(log, 0);
+		bpf_printk("snprintf failed: %d", ret);
+		bpf_ringbuf_discard(entry, 0);
 		return;
 	}
 
-	log->uid = bpf_get_current_uid_gid();
-	log->gid = bpf_get_current_uid_gid() >> 32; // NOLINT(readability-magic-numbers)
-	log->pid = bpf_get_current_pid_tgid();
-	log->args[0] = arg0;
-	log->args[1] = arg1;
-	log->args[2] = arg2;
-
-	bpf_ringbuf_submit(log, 0);
+	bpf_ringbuf_submit(entry, 0);
 }
 
 // filter_pidns checks if the current task is in a PID namespace equal to or
