@@ -77,6 +77,7 @@ func TestExectrace(t *testing.T) {
 	<-processDone
 }
 
+//nolint:paralleltest
 func TestExectraceTruncatedArgs(t *testing.T) {
 	// This test must be run as root so we can start exectrace.
 	if os.Geteuid() != 0 {
@@ -117,6 +118,7 @@ func TestExectraceTruncatedArgs(t *testing.T) {
 	<-processDone
 }
 
+//nolint:paralleltest
 func TestExectraceTruncatedLongArg(t *testing.T) {
 	// This test must be run as root so we can start exectrace.
 	if os.Geteuid() != 0 {
