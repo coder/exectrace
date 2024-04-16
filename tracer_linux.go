@@ -56,7 +56,10 @@ type logEntry struct {
 	UID uint32
 	GID uint32
 	PID uint32
-	Log [logfmtsize]byte
+	Fmt [logfmtsize]byte
+	// Args are uint32s but depending on the format string, they may be
+	// interpreted as int32s instead.
+	Arg [logarglen]uint32
 }
 
 type tracer struct {
@@ -269,7 +272,30 @@ func (t *tracer) readLogs(rbLogs *ringbuf.Reader, logFn func(uid, gid, pid uint3
 			continue
 		}
 
-		logLine := unix.ByteSliceToString(logEntry.Log[:])
+		// Format the log line.
+		// 1. Find all %u and %d directives in the string (this is all we
+		//    support).
+		// 2. For each:
+		//    1. If it's a %u, replace it with the next uint32 in the args.
+		//    2. If it's a %d, cast the next uint32 to an int32 and replace.
+		logLine := unix.ByteSliceToString(logEntry.Fmt[:])
+		for i := 0; i < logarglen; i++ {
+			arg := logEntry.Arg[i]
+
+			// Find the next %u or %d in the log line.
+			uIndex := strings.Index(logLine, `%u`)
+			dIndex := strings.Index(logLine, `%d`)
+			if uIndex == -1 && dIndex == -1 {
+				break
+			}
+			if uIndex < dIndex || dIndex == -1 {
+				logLine = strings.Replace(logLine, `%u`, fmt.Sprint(arg), 1)
+			}
+			if dIndex < uIndex || uIndex == -1 {
+				logLine = strings.Replace(logLine, `%d`, fmt.Sprint(int32(arg)), 1)
+			}
+		}
+
 		logFn(logEntry.UID, logEntry.GID, logEntry.PID, logLine)
 	}
 }
