@@ -24,12 +24,12 @@ handlers: bpf/handler-bpfeb.o bpf/handler-bpfel.o
 clean: clean-enterprise
 	rm -rf bpf/handler-bpfeb.o bpf/handler-bpfel.o
 
-ci/.clang-image: ci/images/clang-13/Dockerfile
+ci/.clang-image: ci/images/clang-13/Dockerfile ci/scripts/clang_image.sh
 	./ci/scripts/clang_image.sh
 	touch ci/.clang-image
 
 # bpfeb is big endian, bpfel is little endian.
-bpf/handler-bpfeb.o bpf/handler-bpfel.o: bpf/*.h bpf/*.c ci/.clang-image
+bpf/handler-bpfeb.o bpf/handler-bpfel.o: bpf/*.h bpf/*.c ci/.clang-image ci/scripts/build_handler.sh
 	./ci/scripts/build_handler.sh "$(@F)"
 
 .PHONY: fmt
@@ -76,22 +76,20 @@ lint/shellcheck:
 	./ci/scripts/shellcheck.sh
 
 .PHONY: test
-test: test/go
+test: test/go test/go-enterprise
 
 .PHONY: test/go
 test/go:
-	go clean -testcache
-	gotestsum --debug -- -v -short ./...
-	cd enterprise
-	gotestsum --debug -- -v -short ./...
+	go test -exec sudo -v -count 1 ./...
 
-# test/go-sudo is equivalent to test/go but runs the test binary using sudo.
-# Some tests are skipped if not running as root.
-.PHONY: test/go-sudo
-test/go-sudo:
-	go clean -testcache
-	gotestsum --debug -- -exec sudo -v -short ./...
+.PHONY: test/go-enterprise
+test/go-enterprise:
 	cd enterprise
-	gotestsum --debug -- -exec sudo -v -short ./...
+	go test -exec sudo -v -count 1 ./...
+
+.PHONY: bench
+bench:
+	go clean -testcache
+	COUNT=10000 ./bench/bench.sh
 
 include Makefile.enterprise

@@ -33,7 +33,7 @@ func rootCmd() *cobra.Command {
 	var cmd = &cobra.Command{
 		Use:   "exectrace",
 		Short: "exectrace logs all exec calls on the system.",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			if outputFormat != "text" && outputFormat != "json" {
 				//nolint:revive
 				log.Fatalf(`output format must be "text" or "json", got %q`, outputFormat)
@@ -56,6 +56,7 @@ func rootCmd() *cobra.Command {
 func run(pidNS uint32, outputFormat string) error {
 	t, err := exectrace.New(&exectrace.TracerOpts{
 		PidNS: pidNS,
+		// We use the default LogFn since it logs all the details to stderr.
 	})
 	if err != nil {
 		return xerrors.Errorf("start tracer: %w", err)
@@ -96,8 +97,8 @@ func run(pidNS uint32, outputFormat string) error {
 			}
 
 			_, _ = fmt.Printf(
-				"[%v, comm=%q, uid=%v, gid=%v] %v%v\n",
-				event.PID, event.Comm, event.UID, event.GID,
+				"[%v, comm=%q, uid=%v, gid=%v, filename=%v] %v%v\n",
+				event.PID, event.Comm, event.UID, event.GID, event.Filename,
 				shellquote.Join(event.Argv...), ellipsis,
 			)
 			continue

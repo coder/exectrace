@@ -29,15 +29,15 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  test-go:
-    name: "test/go"
+  test-go-enterprise:
+    name: "test/go-enterprise"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "^1.20.7"
+          go-version: "^1.21.9"
 
       - name: Echo Go Cache Paths
         id: go-cache-paths
@@ -57,59 +57,5 @@ jobs:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
 
-      - name: Install gotestsum
-        uses: jaxxstorm/action-install-gh-release@v1.9.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          repo: gotestyourself/gotestsum
-          tag: v1.10.1
-
       - name: Test
-        shell: bash
-        run: |
-          set +e
-          gotestsum \
-            --junitfile="gotests.xml" \
-            --jsonfile="gotestsum.json" \
-            --packages="./..." \
-            --debug \
-            -- \
-            -exec sudo \
-            -parallel=8 \
-            -timeout=5m \
-            -short \
-            -failfast \
-            -covermode=atomic \
-            -coverprofile="gotests.coverage" \
-            -coverpkg=./...
-          ret=$?
-          set -e
-          if ((ret)); then
-            # Eternalize test timeout logs because "re-run failed" erases
-            # artifacts and gotestsum doesn't always capture it:
-            # https://github.com/gotestyourself/gotestsum/issues/292
-            # Multiple test packages could've failed, each one may or may
-            # not run into the edge case. PS. Don't summon ShellCheck here.
-            for testWithStack in $(grep 'panic: test timed out' gotestsum.json | grep -E -o '("Test":[^,}]*)'); do
-              if [ -n "$testWithStack" ] && grep -q "${testWithStack}.*PASS" gotestsum.json; then
-                echo "Conditions met for gotestsum stack trace missing bug, outputting panic trace:"
-                grep -A 999999 "${testWithStack}.*panic: test timed out" gotestsum.json
-              fi
-            done
-          fi
-          exit $ret
-
-      - uses: actions/upload-artifact@v3
-        if: success() || failure()
-        with:
-          name: gotestsum-debug.json
-          path: ./gotestsum.json
-          retention-days: 7
-
-      - uses: actions/upload-artifact@v3
-        if: success() || failure()
-        with:
-          name: gotests.xml
-          path: ./gotests.xml
-          retention-days: 30
+        run: make test/go-enterprise

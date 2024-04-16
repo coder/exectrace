@@ -1,14 +1,21 @@
 #include "vmlinux.h"
 #include "bpf_core_read.h"
 #include "bpf_helpers.h"
+#include "vmlinux_core.h"
 
 // This license needs to be GPL-compatible because the BTF verifier won't let us
 // use many BPF helpers (including `bpf_probe_read_*`).
 u8 __license[] SEC("license") = "Dual MIT/GPL"; // NOLINT
 
+// Adds some extra log entries that are usually spam when deployed in the real
+// world.
+//#define DEBUG
+
 // These constants must be kept in sync with Go.
-#define ARGLEN  32   // maximum amount of args in argv we'll copy
-#define ARGSIZE 1024 // maximum byte length of each arg in argv we'll copy
+#define ARGLEN    32    // maximum amount of args in argv we'll copy
+#define ARGSIZE   1024  // maximum byte length of each arg in argv we'll copy
+#define LOGFMTSIZE 1024 // maximum length of log fmt str sent back to userspace
+#define LOGARGLEN 3     // maximum amount of fmt arguments to a log entry
 
 // Maximum levels of PID namespace nesting. PID namespaces have a hierarchy
 // limit of 32 since kernel 3.7.
@@ -44,12 +51,48 @@ struct event_t {
 	u8  comm[ARGSIZE];
 };
 
+static struct event_t zero_event SEC(".rodata") = {
+	.filename = {0},
+	.argv = {},
+	.argc = 0,
+	.uid = 0,
+	.gid = 0,
+	.pid = 0,
+	.comm = {0},
+};
+
+// Log entry from eBPF to userspace. This struct must be kept in sync with the
+// Golang counterpart.
+struct log_entry_t {
+	u32 uid;
+	u32 gid;
+	u32 pid;
+	// fmt contains a format string that only contains "%d" and "%u" directives.
+	// In userspace we will replace these with the arguments in `args`.
+	u8  fmt[LOGFMTSIZE];
+	// These are communicated back to userspace as unsigned 32-bit integers, but
+	// depending on the format string, they could be treated as signed or
+	// unsigned.
+	u32 args[LOGARGLEN];
+};
+
+static struct log_entry_t zero_log SEC(".rodata") = {
+	.fmt = {0},
+	.args = {},
+};
+
 // This is the ring buffer we'll output events data to. The Go program reads
 // from this ring buffer and reads the data into a Go struct for easy usage.
 struct {
 	__uint(type, BPF_MAP_TYPE_RINGBUF);
 	__uint(max_entries, 1 << 24);
 } events SEC(".maps");
+
+// The ring buffer we will output log entries to.
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 1 << 24);
+} logs SEC(".maps");
 
 // The map we'll use to retrieve the configuration about the given filters.
 struct {
@@ -62,54 +105,97 @@ struct {
 // Indexes in the `filters` map for each configuration option.
 static u32 filter_pidns_idx SEC(".rodata") = 0;
 
-// Zero values of any char[ARGSIZE] or char[ARGLEN][ARGSIZE] arrays.
-static char zero[ARGSIZE] SEC(".rodata") = {0};
-static char zero_argv[ARGLEN][ARGSIZE] SEC(".rodata") = {0};
+// LOG[N] calls log() with the unused parameters zeroed out. `N` is the amount
+// of fmt args you want to use.
+#define LOG0(fmt) LOG3(fmt, 0, 0, 0)
+#define LOG1(fmt, arg0) LOG3(fmt, arg0, 0, 0)
+#define LOG2(fmt, arg0, arg1) LOG3(fmt, arg0, arg1, 0)
+#define LOG3(fmt, arg0, arg1, arg2) log(fmt, sizeof(fmt), arg0, arg1, arg2)
+
+// log logs to bpf_trace_printk() and sends the formatted log string to the logs
+// ringbuf. Call LOG[N]() instead of calling this directly.
+static void log(const char *fmt, u32 fmt_size, u32 arg0, u32 arg1, u32 arg2) {
+	bpf_trace_printk(fmt, fmt_size, arg0, arg1, arg2);
+
+	struct log_entry_t *entry;
+	entry = bpf_ringbuf_reserve(&logs, sizeof(struct log_entry_t), 0);
+	if (!entry) {
+		bpf_printk("could not reserve logs ringbuf memory");
+		return;
+	}
+
+	// Zero out the log entry for safety. If we don't do this, we risk sending
+	// random kernel memory back to userspace.
+	s32 ret = bpf_probe_read_kernel(entry, sizeof(struct log_entry_t), &zero_log);
+	if (ret < 0) {
+		bpf_printk("zero out log: %d", ret);
+		bpf_ringbuf_discard(entry, 0);
+		return;
+	}
+
+	// Copy the fmt string into the log entry.
+	// NOTE: bpf_snprintf is not supported in some of the lower kernel versions
+	// we claim to support, so we have to do it this way.
+	ret = bpf_probe_read_kernel_str(&entry->fmt, sizeof(entry->fmt), fmt);
+	if (ret < 0) {
+		bpf_printk("could not read fmt into log struct: %d", ret);
+		bpf_ringbuf_discard(entry, 0);
+		return;
+	}
+
+	entry->uid = bpf_get_current_uid_gid();
+	entry->gid = bpf_get_current_uid_gid() >> 32; // NOLINT(readability-magic-numbers)
+	entry->pid = bpf_get_current_pid_tgid();
+	entry->args[0] = arg0;
+	entry->args[1] = arg1;
+	entry->args[2] = arg2;
+
+	bpf_ringbuf_submit(entry, 0);
+}
 
 // filter_pidns checks if the current task is in a PID namespace equal to or
 // under the given target_pidns. Returns a 0 if successful, or a negative error
 // on failure.
 s32 filter_pidns(u32 target_pidns) {
-	struct task_struct *task = (void *)bpf_get_current_task(); // NOLINT(performance-no-int-to-ptr)
+	struct task_struct___exectrace *task = (void *)bpf_get_current_task(); // NOLINT(performance-no-int-to-ptr)
 
-	struct nsproxy *ns;
-	s64 ret = bpf_core_read(&ns, sizeof(ns), &task->nsproxy);
+	struct pid_namespace___exectrace *pidns;
+	s32 ret = BPF_CORE_READ_INTO(&pidns, task, nsproxy, pid_ns_for_children);
 	if (ret) {
-		bpf_printk("could not read current task nsproxy: %d", ret);
-		return ret;
-	}
-
-	struct pid_namespace *pidns;
-	ret = bpf_core_read(&pidns, sizeof(pidns), &ns->pid_ns_for_children);
-	if (ret) {
-		bpf_printk("could not read current task pidns: %d", ret);
+		LOG1("could not read current task pidns: %d", ret);
 		return ret;
 	}
 
 	// Iterate up the PID NS tree until we either find the net namespace we're
 	// filtering for, or until there are no more parent namespaces.
-	struct ns_common nsc;
-	#pragma unroll
-	for (s32 i = 0; i < MAX_PIDNS_HIERARCHY; i++) {
+	u32 inum;
+	u32 i = 0;
+	for (; i < MAX_PIDNS_HIERARCHY; i++) {
 		if (i != 0) {
-			ret = bpf_core_read(&pidns, sizeof(pidns), &pidns->parent);
+			ret = BPF_CORE_READ_INTO(&pidns, pidns, parent);
 			if (ret) {
-				bpf_printk("could not read parent pidns on iteration %d: %d", i, ret);
+				LOG2("could not read parent pidns on iteration %u: %d", i, ret);
 				return ret;
 			}
 		}
 		if (!pidns) {
-			// No more PID namespaces.
+			#ifdef DEBUG
+			LOG1("no more pidns after %u iterations", i);
+			#endif
 			return -1;
 		}
 
-		ret = bpf_core_read(&nsc, sizeof(nsc), &pidns->ns);
+		ret = BPF_CORE_READ_INTO(&inum, pidns, ns.inum);
 		if (ret) {
-			bpf_printk("could not read pidns common on iteration %d: %d", i, ret);
+			LOG2("could not read pidns common on iteration %u: %d", i, ret);
 			return ret;
 		}
 
-		if (nsc.inum == target_pidns) {
+		#ifdef DEBUG
+		LOG3("got pidns on iteration %u: %u (target=%u)", i, inum, target_pidns);
+		#endif
+
+		if (inum == target_pidns) {
 			// One of the parent PID namespaces was the target PID namespace.
 			return 0;
 		}
@@ -117,6 +203,9 @@ s32 filter_pidns(u32 target_pidns) {
 
 	// Iterated through all 32 parent PID namespaces and couldn't find what we
 	// were looking for.
+	#ifdef DEBUG
+	LOG1("does not match pidns filter after %u iterations", i);
+	#endif
 	return -1;
 }
 
@@ -132,56 +221,42 @@ s32 enter_execve(struct exec_info *ctx) {
 	struct event_t *event;
 	event = bpf_ringbuf_reserve(&events, sizeof(struct event_t), 0);
 	if (!event) {
-		bpf_printk("could not reserve ringbuf memory");
+		LOG0("could not reserve events ringbuf memory");
 		return 1;
 	}
 
-	// Zero out the filename, argv and comm arrays on the event for safety. If
-	// we don't do this, we risk sending random kernel memory back to userspace.
-	s64 ret = bpf_probe_read_kernel(&event->filename, sizeof(zero), &zero);
+	// Zero out the event for safety. If we don't do this, we risk sending
+	// random kernel memory back to userspace.
+	s32 ret = bpf_probe_read_kernel(event, sizeof(event), &zero_event);
 	if (ret) {
-		bpf_printk("zero out filename: %d", ret);
-		bpf_ringbuf_discard(event, 0);
-		return 1;
-	}
-	ret = bpf_probe_read_kernel(&event->argv, sizeof(zero_argv), &zero_argv);
-	if (ret) {
-		bpf_printk("zero out argv: %d", ret);
-		bpf_ringbuf_discard(event, 0);
-		return 1;
-	}
-	ret = bpf_probe_read_kernel(&event->comm, sizeof(zero), &zero);
-	if (ret) {
-		bpf_printk("zero out comm: %d", ret);
+		LOG1("zero out event: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 
 	// Store process/calling process details.
-	u64 uidgid = bpf_get_current_uid_gid();
-	u64 pidtgid = bpf_get_current_pid_tgid();
-	event->uid = uidgid;       // uid is the first 32 bits
-	event->gid = uidgid >> 32; // gid is the last 32 bits NOLINT(readability-magic-numbers)
-	event->pid = pidtgid;      // pid is the first 32 bits
+	event->uid = bpf_get_current_uid_gid();
+	event->gid = bpf_get_current_uid_gid() >> 32; // NOLINT(readability-magic-numbers)
+	event->pid = bpf_get_current_pid_tgid();
 	ret = bpf_get_current_comm(&event->comm, sizeof(event->comm));
 	if (ret) {
-		bpf_printk("could not get current comm: %d", ret);
+		LOG1("could not get current comm: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 
 	// Write the filename in addition to argv[0] because the filename contains
 	// the full path to the file which could be more useful in some situations.
-	ret = bpf_probe_read_user_str(event->filename, sizeof(event->filename), ctx->filename);
+	ret = bpf_probe_read_user_str(&event->filename, sizeof(event->filename), ctx->filename);
 	if (ret < 0) {
-		bpf_printk("could not read filename into event struct: %d", ret);
+		LOG1("could not read filename into event struct: %d", ret);
 		bpf_ringbuf_discard(event, 0);
 		return 1;
 	}
 
 	// Copy everything from ctx->argv to event->argv, incrementing event->argc
 	// as we go.
-	for (s32 i = 0; i < ARGLEN; i++) {
+	for (u32 i = 0; i < ARGLEN; i++) {
 		if (!(&ctx->argv[i])) {
 			goto out;
 		}
@@ -197,7 +272,7 @@ s32 enter_execve(struct exec_info *ctx) {
 		// Copy argp to event->argv[i].
 		ret = bpf_probe_read_user_str(event->argv[i], sizeof(event->argv[i]), argp);
 		if (ret < 0) {
-			bpf_printk("read argv %d: %d", i, ret);
+			LOG2("read argv %u: %d", i, ret);
 			goto out;
 		}
 

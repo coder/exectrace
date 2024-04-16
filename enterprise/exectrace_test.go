@@ -20,6 +20,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/coder/exectrace"
+
 	"cdr.dev/slog"
 	"cdr.dev/slog/sloggers/slogjson"
 )
@@ -29,10 +31,10 @@ func TestExectrace(t *testing.T) {
 
 	// This test must be run as root so we can start exectrace.
 	if os.Geteuid() != 0 {
-		t.Skip("must be run as root")
+		t.Fatal("must be run as root")
 	}
 
-	currentPidNS, err := getPidNS()
+	currentPidNS, err := exectrace.GetPidNS()
 	require.NoError(t, err)
 
 	//nolint:paralleltest // Reserves a port

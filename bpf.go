@@ -53,6 +53,12 @@ func loadBPFObjects() (*bpfObjects, error) {
 	}
 	err = spec.LoadAndAssign(objs, collectionOpts)
 	if err != nil {
+		var ve *ebpf.VerifierError
+		if xerrors.As(err, &ve) {
+			// It's better to use %+v for this as it forces the error to contain
+			// all lines from the verifier log.
+			return nil, xerrors.Errorf("load and assign specs: verifier error: %+v", ve)
+		}
 		return nil, xerrors.Errorf("load and assign specs: %w", err)
 	}
 
@@ -62,6 +68,7 @@ func loadBPFObjects() (*bpfObjects, error) {
 type bpfObjects struct {
 	EnterExecveProg *ebpf.Program `ebpf:"enter_execve"`
 	EventsMap       *ebpf.Map     `ebpf:"events"`
+	LogsMap         *ebpf.Map     `ebpf:"logs"`
 	FiltersMap      *ebpf.Map     `ebpf:"filters"`
 
 	closeLock sync.Mutex
@@ -90,6 +97,18 @@ func (o *bpfObjects) Close() error {
 		err := o.EventsMap.Close()
 		if err != nil {
 			merr = multierror.Append(merr, xerrors.Errorf(`close BPF map "events": %w`, err))
+		}
+	}
+	if o.LogsMap != nil {
+		err := o.LogsMap.Close()
+		if err != nil {
+			merr = multierror.Append(merr, xerrors.Errorf(`close BPF map "logs": %w`, err))
+		}
+	}
+	if o.FiltersMap != nil {
+		err := o.FiltersMap.Close()
+		if err != nil {
+			merr = multierror.Append(merr, xerrors.Errorf(`close BPF map "filters": %w`, err))
 		}
 	}
 

@@ -33,3 +33,5 @@ build
 *.tfplan
 *.lock.hcl
 .terraform/
+
+/exectrace
