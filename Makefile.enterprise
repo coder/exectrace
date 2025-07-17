@@ -64,6 +64,9 @@ $(IMAGES): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag: $(ENTERPRISE_BU
 	)
 	if [[ "$${arch_map[$${arch}]+exists}" != "" ]]; then
 		arch="$${arch_map[$${arch}]}"
+	else
+		echo "Unknown arch: $${arch}"
+		exit 1
 	fi
 
 	temp_dir="$$(mktemp -d)"
@@ -71,7 +74,9 @@ $(IMAGES): $(ENTERPRISE_BUILD)/exectrace_$(VERSION)_linux_%.tag: $(ENTERPRISE_BU
 	cp "$<" "$${temp_dir}/exectrace"
 
 	docker build \
+		--platform "$${arch}" \
 		--tag "$${image_tag}" \
+		--no-cache \
 		--build-arg "CODER_VERSION=$(VERSION)" \
 		"$${temp_dir}"
 
