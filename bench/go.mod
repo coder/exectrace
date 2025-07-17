@@ -1,6 +1,6 @@
 module github.com/coder/exectrace/bench
 
-go 1.21.0
+go 1.24
 
 require (
 	github.com/DataDog/ebpfbench v0.0.0-20230731170724-14eabe1f3e9a

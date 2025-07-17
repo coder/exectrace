@@ -292,7 +292,7 @@ func (t *tracer) readLogs(rbLogs *ringbuf.Reader, logFn func(uid, gid, pid uint3
 				logLine = strings.Replace(logLine, `%u`, fmt.Sprint(arg), 1)
 			}
 			if dIndex < uIndex || uIndex == -1 {
-				logLine = strings.Replace(logLine, `%d`, fmt.Sprint(int32(arg)), 1)
+				logLine = strings.Replace(logLine, `%d`, fmt.Sprint(int32(arg)), 1) //nolint:gosec // we intentionally want to cast directly to int32
 			}
 		}
 

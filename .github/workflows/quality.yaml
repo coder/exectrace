@@ -28,15 +28,15 @@ permissions:
 jobs:
   fmt-go:
     name: fmt/go
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.21.9"
+          go-version: "^1.24.5"
 
       - name: Run make fmt/go
         run: make fmt/go
@@ -46,15 +46,15 @@ jobs:
 
   fmt-prettier:
     name: fmt/prettier
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "22"
 
       - name: Install prettier
         run: npm install --global prettier
@@ -67,20 +67,19 @@ jobs:
 
   lint-go:
     name: lint/go
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install Go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.21.9"
+          go-version: "^1.24.5"
 
       - name: Install golangci-lint
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
-            | sh -s -- -b $(go env GOPATH)/bin v1.57.2
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
       # Linting needs to be done on each build variation of GOOS.
       - name: Run make lint/go/linux
@@ -92,13 +91,21 @@ jobs:
 
   test-go:
     name: "test/go"
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runs-on:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm # arm64
+    runs-on: ${{ matrix.runs-on }}
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Go
+        uses: actions/setup-go@v5
         with:
-          go-version: "^1.21.9"
+          go-version: "^1.24.5"
 
       - name: Echo Go Cache Paths
         id: go-cache-paths
@@ -107,13 +114,13 @@ jobs:
           echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
       - name: Go Build Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.go-cache-paths.outputs.go-build }}
           key: ${{ runner.os }}-go-build-${{ hashFiles('**/go.**', '**.go') }}
 
       - name: Go Mod Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.go-cache-paths.outputs.go-mod }}
           key: ${{ runner.os }}-go-mod-${{ hashFiles('**/go.sum') }}
@@ -123,10 +130,10 @@ jobs:
 
   lint-c:
     name: lint/c
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Run make lint/c
         run: make lint/c
@@ -141,10 +148,10 @@ jobs:
 
   lint-shellcheck:
     name: lint/shellcheck
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install shellcheck
         run: sudo apt install -y shellcheck

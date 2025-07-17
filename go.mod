@@ -1,6 +1,6 @@
 module github.com/coder/exectrace
 
-go 1.21.0
+go 1.24
 
 require (
 	github.com/cilium/ebpf v0.14.0
