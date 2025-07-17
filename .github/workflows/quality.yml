@@ -28,7 +28,7 @@ permissions:
 jobs:
   fmt-go:
     name: fmt/go
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
 
   fmt-prettier:
     name: fmt/prettier
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -67,7 +67,7 @@ jobs:
 
   lint-go:
     name: lint/go
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -123,7 +123,7 @@ jobs:
 
   lint-c:
     name: lint/c
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -141,7 +141,7 @@ jobs:
 
   lint-shellcheck:
     name: lint/shellcheck
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
