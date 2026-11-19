@@ -21,9 +21,9 @@ var (
 	// collectionOpts used for loading the BPF objects.
 	collectionOpts = &ebpf.CollectionOptions{
 		Programs: ebpf.ProgramOptions{
-			// While debugging, it may be helpful to set this value to be much
-			// higher (i.e. * 1000).
-			LogSize: ebpf.DefaultVerifierLogSize,
+			// The verifier log buffer grows automatically when a load fails.
+			// While debugging, it may be helpful to set LogLevel and a larger
+			// LogSizeStart to capture the full log on successful loads too.
 		},
 	}
 )
