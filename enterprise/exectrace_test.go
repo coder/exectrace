@@ -241,7 +241,8 @@ func TestWaitForExectracePidNS(t *testing.T) {
 }
 
 func getRandListener(t *testing.T) net.Listener {
-	l, err := net.Listen("tcp", "localhost:0")
+	var lc net.ListenConfig
+	l, err := lc.Listen(t.Context(), "tcp", "localhost:0")
 	require.NoError(t, err, "listen on available port")
 	t.Cleanup(func() {
 		_ = l.Close()
