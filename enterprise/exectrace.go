@@ -141,7 +141,8 @@ func Run(ctx context.Context, log slog.Logger, opts Options) error {
 // waitForExectracePidNS starts a HTTP server on listenAddr and waits until it
 // gets POSTed a uint32, then closes the server and returns it.
 func waitForExectracePidNS(ctx context.Context, listenAddr string) (uint32, error) {
-	l, err := net.Listen("tcp", listenAddr)
+	var lc net.ListenConfig
+	l, err := lc.Listen(ctx, "tcp", listenAddr)
 	if err != nil {
 		return 0, xerrors.Errorf("listen %q on tcp: %w", listenAddr, err)
 	}
