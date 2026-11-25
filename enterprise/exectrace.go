@@ -23,10 +23,16 @@ import (
 )
 
 const (
-	debugFS           = "debugfs"
-	debugFSMountpoint = "/sys/kernel/debug"
-	traceFS           = "tracefs"
-	traceFSMountpoint = debugFSMountpoint + "/tracing"
+	traceFS = "tracefs"
+	// traceFSMountpoint is the canonical tracefs location (since Linux 4.1).
+	//
+	// We intentionally don't use /sys/kernel/debug/tracing: that path only
+	// exists when the kernel automounts tracefs inside debugfs
+	// (CONFIG_TRACEFS_AUTOMOUNT_DEPRECATED, deprecated since Linux 6.17).
+	// Kernels built without it, such as Talos Linux 1.14, have no "tracing"
+	// directory in debugfs and debugfs doesn't allow creating one, so mounting
+	// there fails.
+	traceFSMountpoint = "/sys/kernel/tracing"
 )
 
 type Options struct {
@@ -59,13 +65,9 @@ func Run(ctx context.Context, log slog.Logger, opts Options) error {
 	}
 	log.Debug(ctx, "got PidNS", slog.F("pid_ns", pidNS))
 
-	// We need to make sure that debugfs is mounted at /sys/kernel/debug and
-	// tracefs is mounted at /sys/kernel/debug/tracing.
+	// We need to make sure that tracefs is mounted at /sys/kernel/tracing so
+	// the tracepoint can be attached.
 	log.Debug(ctx, "preparing environment for eBPF tracing")
-	err = ensureVirtualMountpoint(debugFS, debugFSMountpoint, nil)
-	if err != nil {
-		return xerrors.Errorf("ensure debugfs mounted: %w", err)
-	}
 	err = ensureVirtualMountpoint(traceFS, traceFSMountpoint, nil)
 	if err != nil {
 		return xerrors.Errorf("ensure tracefs mounted: %w", err)

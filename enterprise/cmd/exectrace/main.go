@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
+		// Without this the process exits with no indication of why.
+		fmt.Fprintf(os.Stderr, "exectrace: %v\n", err)
 		os.Exit(1)
 	}
 }
